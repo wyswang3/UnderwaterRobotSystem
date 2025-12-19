@@ -1,0 +1,22 @@
+digraph deps {
+  rankdir=LR;
+  node [shape=box];
+  "OrangePi_STM32_for_ROV" -> "(root)" [label="44"];
+  "OrangePi_STM32_for_ROV" -> "control_core" [label="41"];
+  "OrangePi_STM32_for_ROV" -> "io" [label="35"];
+  "Underwater-robot-navigation" -> "nav_core" [label="25"];
+  "OrangePi_STM32_for_ROV" -> "comm_gcs" [label="24"];
+  "OrangePi_STM32_for_ROV" -> "controllers" [label="11"];
+  "Underwater-robot-navigation" -> "(root)" [label="11"];
+  "OrangePi_STM32_for_ROV" -> "platform" [label="10"];
+  "OrangePi_STM32_for_ROV" -> "sys" [label="9"];
+  "Underwater-robot-navigation" -> "sys" [label="9"];
+  "OrangePi_STM32_for_ROV" -> "proto_gcs" [label="8"];
+  "OrangePi_STM32_for_ROV" -> "arpa" [label="5"];
+  "OrangePi_STM32_for_ROV" -> "netinet" [label="4"];
+  "OrangePi_STM32_for_ROV" -> "shared" [label="4"];
+  "OrangePi_STM32_for_ROV" -> "yaml-cpp" [label="3"];
+  "OrangePi_STM32_for_ROV" -> "Eigen" [label="2"];
+  "OrangePi_STM32_for_ROV" -> "utils" [label="2"];
+  "Underwater-robot-navigation" -> "shared" [label="2"];
+}
