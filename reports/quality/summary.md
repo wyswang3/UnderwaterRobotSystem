@@ -8,17 +8,18 @@
 ## 0. 概览 / Executive Summary
 
 - 项目根目录 (Project root)：`/home/wys/orangepi`
-- 扫描文件数 (Files scanned)：**270**
-- 代码总行数 (Code LOC)：**27158**，约折合 **543.2 页** 技术书（按每页 ~50 行估算）
-- 注释行数 (Comment LOC)：**7387**，注释比例 (Comment ratio)：**21.4%** —— 注释比例还可以，可在复杂模块继续增强。
-- 分支关键字计数 (Branch tokens, 反映 if/循环等复杂度大致数量)：**4863**
-- 复杂度 / 风险综合水平 (Overall risk level)：**高 / High** (平均风险评分 ~838.8，最高 ~5789.0)
+- 扫描文件数 (Files scanned)：**268**
+- 代码总行数 (Code LOC)：**27558**，约折合 **275.6 页** 技术书（按每页 ~100 行估算）
+- 总行数 (Total LOC)：**42122**（其中空行 7142 行）
+- 注释行数 (Comment LOC)：**7422**，注释比例 (Comment ratio)：**21.2%** —— 注释比例还可以，可在复杂模块继续增强。
+- 分支关键字计数 (Branch tokens, 反映 if/循环等复杂度大致数量)：**4887**
+- 复杂度 / 风险综合水平 (Overall risk level)：**高 / High** (平均风险评分 ~853.9，最高 ~5789.0)
 - 规模评价 (Project size)：代码规模较大，适合按照子系统（驱动 / 控制 / 通信等）分级管理。
 - Git 热点分析 (Git hotspots)：当前未启用 git 热点分析，可在运行工具时增加 `--git-days` 参数来观察“最近修改最频繁”的文件。
 
 简单来说：如果你不是写代码的人，可以把这个工程理解为——
 
-- 大约有 **543.2 页** 的“代码说明书”；
+- 大约有 **275.6 页** 的“代码说明书”；
 - 其中一部分文件结构比较复杂，是未来维护和出问题的重点区域；
 - 报告后面列出的 Top 表格，就是“最值得优先关注”的那一批文件。
 
@@ -28,18 +29,59 @@
 
 | Lang | Files | Code LOC | Comment LOC | Total LOC | Code % |
 | --- | --- | --- | --- | --- | --- |
-| cpp | 163 | 18122 | 5216 | 28411 | 66.7% |
-| python | 98 | 8311 | 2171 | 12382 | 30.6% |
-| cmake | 9 | 725 | 0 | 857 | 2.7% |
+| cpp | 162 | 18058 | 5182 | 28296 | 65.5% |
+| python | 98 | 8786 | 2240 | 12984 | 31.9% |
+| cmake | 8 | 714 | 0 | 842 | 2.6% |
 ## 2. 按顶层目录的代码量 / LOC by Top-level Directory
 
 这一部分回答：**“控制 / 通信 / 导航 / 公共库等大模块，各自大概有多少代码？”**
 
 | Top Dir | Code LOC | Code % |
 | --- | --- | --- |
-| UnderwaterRobotSystem | 24202 | 89.1% |
-| UnderWaterRobotGCS | 1753 | 6.5% |
-| tools | 1203 | 4.4% |
+| UnderwaterRobotSystem | 24444 | 88.7% |
+| UnderWaterRobotGCS | 1753 | 6.4% |
+| tools | 1361 | 4.9% |
+## 2b. 目录风险画像 / Directory Risk Profile
+
+这一部分从“目录”的角度综合看工程结构：
+- 哪些目录代码量最大，是主要战场；
+- 哪些目录风险集中，适合重点重构；
+- 哪些目录近期改动频繁，维护压力最大。
+
+| Dir | Files | Code LOC | Comment LOC | Code % | AvgRisk | MaxRisk | TODO | Changes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| UnderwaterRobotSystem | 230 | 24444 | 6939 | 88.7% | 920.9 | 5789.0 | 38 | 0 |
+| UnderWaterRobotGCS | 27 | 1753 | 301 | 6.4% | 269.5 | 3437.0 | 0 | 0 |
+| tools | 11 | 1361 | 182 | 4.9% | 885.9 | 3863.0 | 33 | 0 |
+
+### 高风险目录（按风险密度排序） / High-risk Directories by Risk Density
+
+| Dir | Code LOC | Risk/LOC | RiskHits | Changes |
+| --- | --- | --- | --- | --- |
+| UnderwaterRobotSystem | 24444 | 8.67 | 1654 | 0 |
+| tools | 1361 | 7.16 | 179 | 0 |
+| UnderWaterRobotGCS | 1753 | 4.15 | 76 | 0 |
+从上表可以看到：
+- 代码量最大的目录承载了主要业务，是未来维护和功能扩展的重点；
+- 部分目录虽然代码不多，但 Risk/LOC 较高，说明“单位代码复杂度较高”，适合单独梳理结构；
+- Changes 数值高的目录在最近一段时间改动频繁，代表交付压力和问题集中度较高，建议优先补充测试和文档。
+
+## 2c. 二级子目录风险画像 / Subdirectory Risk Profile (Depth=2)
+
+在上一节按“系统级目录”看整体之后，这一节进一步向下看一层，例如 `nav_core/src`、`pwm_control_program/src` 等子目录，用于回答：**“大目录内部，哪一块代码最重 / 最容易出问题？”**
+
+| Subdir (depth=2) | Code LOC | Code % | Risk/LOC | RiskHits | Changes |
+| --- | --- | --- | --- | --- | --- |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV | 15616 | 56.7% | 9.09 | 1052 | 0 |
+| UnderwaterRobotSystem/Underwater-robot-navigation | 7157 | 26.0% | 8.23 | 387 | 0 |
+| UnderwaterRobotSystem/UnderwaterRobotSystem | 1666 | 6.0% | 6.54 | 215 | 0 |
+| tools/quality | 1178 | 4.3% | 6.05 | 179 | 0 |
+| UnderWaterRobotGCS/src | 1753 | 6.4% | 4.15 | 76 | 0 |
+解读建议：
+- `Code LOC` 大、`Risk/LOC` 也高的子目录，是“体量 + 复杂度都高”的区域，适合单独拉出来做一次专题重构；
+- `Changes` 高说明近期改动频繁，可以结合 Git 记录，确认是否存在需求变动频繁或设计不稳定的问题；
+- 对于关键子目录（例如控制回路、导航算法、通信协议等），可以在评审会议中单独展示这一节的表格，作为后续工作量的定量依据。
+
 ## 3. 高风险文件（综合评分） / Top Risk Files (Composite Score)
 
 这里列出的是**结构复杂 + 行数较多 + 分支较多**的文件，通常是“最难改、最容易出问题”的地方。
@@ -54,6 +96,7 @@
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent/intent_arbiter.cpp | 4066 | 215 | 213 | 4 | 62 | 0.15 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent/intent_keyboard_source.cpp | 3984 | 330 | 186 | 4 | 88 | 0.07 |
 | tools/quality/audit.py | 3863 | 204 | 229 | 4 | 8 | 0.15 |
+| UnderwaterRobotSystem/UnderwaterRobotSystem/tools/quality/audit.py | 3863 | 204 | 229 | 4 | 8 | 0.15 |
 | UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/dvl_driver.cpp | 3805 | 471 | 162 | 6 | 83 | 0.21 |
 | UnderWaterRobotGCS/src/urogcs/app/tui_main.py | 3437 | 249 | 164 | 7 | 56 | 0.13 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/app_context.cpp | 3422 | 224 | 186 | 3 | 36 | 0.08 |
@@ -65,7 +108,6 @@
 | UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/imu_driver_wit.cpp | 2828 | 384 | 116 | 5 | 63 | 0.20 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/utils/config_loader_pwm_client.cpp | 2787 | 170 | 135 | 5 | 49 | 0.11 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/utils/config_loader_alloc.cpp | 2775 | 145 | 146 | 5 | 30 | 0.01 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/thruster_allocation.cpp | 2738 | 310 | 116 | 4 | 66 | 0.12 |
 ## 4. 超长函数（重构候选） / Long Functions (Refactor Candidates)
 
 这一部分用来回答：**“哪些函数太长 / 嵌套太深，需要拆分？”**
@@ -79,6 +121,7 @@
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_server.cpp | main | 290-550 | 261 | 6 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/nav_viewd.cpp | main | 207-444 | 238 | 7 |
 | tools/quality/audit.py | main | 42-270 | 229 | 4 |
+| UnderwaterRobotSystem/UnderwaterRobotSystem/tools/quality/audit.py | main | 42-270 | 229 | 4 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp | GcsSession::handle_parsed_ | 97-314 | 218 | 5 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent/intent_arbiter.cpp | IntentArbiter::decide | 94-306 | 213 | 4 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/intentd.cpp | main | 78-267 | 190 | 5 |
@@ -93,7 +136,6 @@
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/nav_viewd.cpp | while | 289-438 | 150 | 6 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/utils/config_loader_alloc.cpp | load_thruster_allocation_config | 21-166 | 146 | 5 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_client.cpp | handshake | 163-299 | 137 | 4 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/orangepi_send/src/main.cpp | main | 85-221 | 137 | 5 |
 ## 5. 头文件依赖健康度（C/C++） / Include Dependency Health (C/C++)
 
 这一部分关注：**“模块之间的耦合关系是否清晰，有没有互相环状依赖？”**
@@ -129,7 +171,7 @@
 
 通过扫描 TODO/FIXME/HACK、危险 C 函数、可疑 C++/Python 写法等，给出一些“可能需要额外注意”的位置。
 
-- TODO / FIXME / HACK / XXX 总数：**64**
+- TODO / FIXME / HACK / XXX 总数：**71**
 - 危险 C 函数（如 strcpy/memcpy 等）命中次数：**58**
 - 危险 C++ 模式命中次数：**93**
 - 危险 Python 模式命中次数：**66**
@@ -140,15 +182,15 @@
 | File | Score | TODO | C-func | C++pat | Pypat | CtrlKW |
 | --- | --- | --- | --- | --- | --- | --- |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/orangepi_send/src/libpwm_host.c | 89 | 0 | 11 | 0 | 0 | 107 |
+| tools/quality/report_md.py | 71 | 14 | 0 | 0 | 0 | 4 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/orangepi_send/src/PwmFrameBuilder.cpp | 67 | 0 | 3 | 7 | 0 | 4 |
-| tools/quality/report_md.py | 61 | 12 | 0 | 0 | 0 | 4 |
+| UnderwaterRobotSystem/UnderwaterRobotSystem/tools/quality/report_md.py | 61 | 12 | 0 | 0 | 0 | 4 |
 | tools/quality/risk_scan.py | 60 | 12 | 0 | 0 | 0 | 0 |
 | UnderwaterRobotSystem/Underwater-robot-navigation/uwnav/drivers/dvl/hover_h1000/io.py | 60 | 0 | 0 | 0 | 10 | 0 |
 | UnderwaterRobotSystem/UnderwaterRobotSystem/tools/quality/risk_scan.py | 60 | 12 | 0 | 0 | 0 | 0 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp | 49 | 0 | 6 | 0 | 0 | 37 |
 | UnderwaterRobotSystem/Underwater-robot-navigation/uwnav/drivers/dvl/hover_h1000/protocol.py | 48 | 0 | 0 | 0 | 8 | 0 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/orangepi_send/src/UdpSender.cpp | 48 | 0 | 0 | 8 | 0 | 0 |
-| UnderwaterRobotSystem/UnderwaterRobotSystem/tools/quality/report_md.py | 46 | 9 | 0 | 0 | 0 | 3 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/keys/key_event_subscriber_shm.cpp | 43 | 0 | 3 | 3 | 0 | 2 |
 | UnderwaterRobotSystem/Underwater-robot-navigation/apps/tools/volt32_data_verifier.py | 36 | 0 | 0 | 0 | 6 | 0 |
 | UnderwaterRobotSystem/Underwater-robot-navigation/apps/acquire/Volt32_logger.py | 36 | 0 | 0 | 0 | 6 | 0 |

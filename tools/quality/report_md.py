@@ -24,6 +24,91 @@ def _fmt_pct(part: int, total: int) -> str:
         return "0%"
     return f"{(part / total) * 100:.1f}%"
 
+def _get_dir_key(rel_path: str, depth: int = 1) -> str:
+    """
+    根据相对路径提取前 depth 级目录作为聚合 key。
+
+    示例：
+    - "nav_core/src/io/foo.cpp", depth=1 -> "nav_core"
+    - "nav_core/src/io/foo.cpp", depth=2 -> "nav_core/src"
+    - "nav_core/src/io/foo.cpp", depth=3 -> "nav_core/src/io"
+    - "main.cpp" -> "<root>"
+    """
+    if not rel_path:
+        return "<root>"
+
+    parts = rel_path.split("/")
+    if len(parts) == 1:
+        # 只有文件名，没有目录
+        return "<root>"
+
+    dirs = parts[:-1]  # 去掉文件名，保留目录部分
+    if not dirs:
+        return "<root>"
+
+    return "/".join(dirs[:depth])
+
+
+def _build_dir_stats(loc: Dict, comp: Dict, risk: Dict, git: Dict, depth: int = 1) -> Dict[str, Dict]:
+    """基于 per-file 信息，按指定目录层级聚合各种指标。"""
+    dir_stats: Dict[str, Dict] = {}
+
+    def ensure_dir(d: str) -> Dict:
+        if d not in dir_stats:
+            dir_stats[d] = {
+                "files": 0,
+                "code_loc": 0,
+                "comment_loc": 0,
+                "total_loc": 0,
+                "risk_score_sum": 0.0,
+                "risk_score_max": 0.0,
+                "risk_hits_sum": 0,
+                "todo_sum": 0,
+                "changes": 0,
+            }
+        return dir_stats[d]
+
+    # 1) 从 LOC 按文件聚合
+    for f in loc["files"]:
+        d = _get_dir_key(f["rel_path"], depth=depth)
+        st = ensure_dir(d)
+        st["files"] += 1
+        st["code_loc"] += f["code_lines"]
+        st["comment_loc"] += f["comment_lines"]
+        st["total_loc"] += f["total_lines"]
+
+    # 2) 从复杂度 per_file 聚合风险分数
+    for f in comp.get("per_file", []):
+        d = _get_dir_key(f["rel_path"], depth=depth)
+        st = ensure_dir(d)
+        rs = float(f.get("risk_score", 0.0))
+        st["risk_score_sum"] += rs
+        if rs > st["risk_score_max"]:
+            st["risk_score_max"] = rs
+
+    # 3) 从 risk per_file 聚合风险命中
+    for f in risk.get("per_file", []):
+        d = _get_dir_key(f["rel_path"], depth=depth)
+        st = ensure_dir(d)
+        st["risk_hits_sum"] += int(f.get("risk_hits_score", 0))
+        st["todo_sum"] += int(f.get("todo", 0))
+
+    # 4) 如果启用 git 热点，从 hot_files 聚合改动次数
+    if git.get("enabled"):
+        for h in git.get("hot_files", []):
+            path = h["path"]
+            changes = int(h["changes"])
+            d = _get_dir_key(path, depth=depth)
+            st = ensure_dir(d)
+            st["changes"] += changes
+
+    return dir_stats
+
+def _risk_density(st: Dict) -> float:
+    """按目录计算“风险密度”：风险分数 / 代码行数。"""
+    return (st["risk_score_sum"] / st["code_loc"]) if st["code_loc"] > 0 else 0.0
+
+
 
 def render(summary: Dict) -> str:
     """
@@ -43,24 +128,29 @@ def render(summary: Dict) -> str:
     by_lang = loc["by_lang"]
     by_dir = loc["by_topdir"]
 
-    total_files = totals["files"]
-    code_loc = totals["code_lines"]
-    comment_loc = totals["comment_lines"]
-    blank_loc = totals["blank_lines"]
-    total_loc = totals["total_lines"]
+    total_files   = totals["files"]
+    code_loc      = totals["code_lines"]
+    comment_loc   = totals["comment_lines"]
+    blank_loc     = totals["blank_lines"]
+    total_loc     = totals["total_lines"]
     branch_tokens = totals["branch_tokens"]
 
-    # 粗略估算：每 50 行代码 ~ 1 页技术书
-    approx_pages = code_loc / 50.0 if code_loc > 0 else 0.0
+    # 新增：目录级统计（一级目录 + 两级目录）
+    dir_stats_lvl1 = _build_dir_stats(loc, comp, risk, git, depth=1)
+    dir_stats_lvl2 = _build_dir_stats(loc, comp, risk, git, depth=2)
+
+
+    # 粗略估算：每 100 行代码 ~ 1 页技术书
+    approx_pages = code_loc / 100.0 if code_loc > 0 else 0.0
 
     # 全局注释比例
     comment_ratio_total = _fmt_pct(comment_loc, code_loc + comment_loc)
 
     # 复杂度 / 风险总览（基于 per_file risk_score 的一个粗略级别）
     per_file = comp.get("per_file", [])
-    risk_scores = [f.get("risk_score", 0) for f in per_file]
-    max_risk = max(risk_scores) if risk_scores else 0
-    avg_risk = sum(risk_scores) / len(risk_scores) if risk_scores else 0.0
+    risk_scores = [f.get("risk_score", 0.0) for f in per_file]
+    max_risk = max(risk_scores) if risk_scores else 0.0
+    avg_risk = (sum(risk_scores) / len(risk_scores)) if risk_scores else 0.0
 
     if max_risk < 30:
         risk_level = "低 / Low"
@@ -110,7 +200,10 @@ def render(summary: Dict) -> str:
     md.append(f"- 扫描文件数 (Files scanned)：**{total_files}**\n")
     md.append(
         f"- 代码总行数 (Code LOC)：**{code_loc}**，"
-        f"约折合 **{approx_pages:.1f} 页** 技术书（按每页 ~50 行估算）\n"
+        f"约折合 **{approx_pages:.1f} 页** 技术书（按每页 ~100 行估算）\n"
+    )
+    md.append(
+        f"- 总行数 (Total LOC)：**{total_loc}**（其中空行 {blank_loc} 行）\n"
     )
     md.append(
         f"- 注释行数 (Comment LOC)：**{comment_loc}**，"
@@ -140,13 +233,11 @@ def render(summary: Dict) -> str:
         "这一部分用于回答：**“这个工程主要是用什么语言写的，各占多少量？”**\n\n"
     )
     rows: List[List[str]] = []
-    for k, v in sorted(
-        by_lang.items(), key=lambda kv: kv[1]["code_lines"], reverse=True
-    ):
-        lang_files = v["files"]
-        lang_code = v["code_lines"]
+    for k, v in sorted(by_lang.items(), key=lambda kv: kv[1]["code_lines"], reverse=True):
+        lang_files   = v["files"]
+        lang_code    = v["code_lines"]
         lang_comment = v["comment_lines"]
-        lang_total = v["total_lines"]
+        lang_total   = v["total_lines"]
         rows.append(
             [
                 k,
@@ -173,6 +264,128 @@ def render(summary: Dict) -> str:
     for k, v in sorted(by_dir.items(), key=lambda kv: kv[1], reverse=True):
         rows.append([k or "<root>", str(v), _fmt_pct(v, code_loc)])
     md.append(_md_table(["Top Dir", "Code LOC", "Code %"], rows))
+
+    # ========== 2b. 目录风险画像 ==========
+    md.append("## 2b. 目录风险画像 / Directory Risk Profile\n\n")
+    md.append(
+        "这一部分从“目录”的角度综合看工程结构：\n"
+        "- 哪些目录代码量最大，是主要战场；\n"
+        "- 哪些目录风险集中，适合重点重构；\n"
+        "- 哪些目录近期改动频繁，维护压力最大。\n\n"
+    )
+
+    # 表 1：按代码量排序的目录概况（一级目录）
+    rows = []
+    for d, st in sorted(dir_stats_lvl1.items(), key=lambda kv: kv[1]["code_loc"], reverse=True):
+        code_loc_d    = st["code_loc"]
+        comment_loc_d = st["comment_loc"]
+        files_d       = st["files"]
+        avg_risk_d    = (st["risk_score_sum"] / files_d) if files_d > 0 else 0.0
+        rows.append(
+            [
+                d,
+                str(files_d),
+                str(code_loc_d),
+                str(comment_loc_d),
+                _fmt_pct(code_loc_d, code_loc),
+                f"{avg_risk_d:.1f}",
+                f"{st['risk_score_max']:.1f}",
+                str(st["todo_sum"]),
+                str(st["changes"]),
+            ]
+        )
+    md.append(
+        _md_table(
+            [
+                "Dir",
+                "Files",
+                "Code LOC",
+                "Comment LOC",
+                "Code %",
+                "AvgRisk",
+                "MaxRisk",
+                "TODO",
+                "Changes",
+            ],
+            rows,
+        )
+    )
+
+    # 表 2：按“风险密度”排序（仍然看一级目录）
+    md.append(
+        "\n### 高风险目录（按风险密度排序） / High-risk Directories by Risk Density\n\n"
+    )
+
+    rows = []
+    for d, st in sorted(dir_stats_lvl1.items(), key=lambda kv: _risk_density(kv[1]), reverse=True):
+        if st["code_loc"] < 200:  # 太小的目录可以过滤掉，避免噪声
+            continue
+        rows.append(
+            [
+                d,
+                str(st["code_loc"]),
+                f"{_risk_density(st):.2f}",
+                str(st["risk_hits_sum"]),
+                str(st["changes"]),
+            ]
+        )
+    md.append(
+        _md_table(
+            ["Dir", "Code LOC", "Risk/LOC", "RiskHits", "Changes"],
+            rows[:10],  # 只取前 10 个
+        )
+    )
+
+    md.append(
+        "从上表可以看到：\n"
+        "- 代码量最大的目录承载了主要业务，是未来维护和功能扩展的重点；\n"
+        "- 部分目录虽然代码不多，但 Risk/LOC 较高，说明“单位代码复杂度较高”，适合单独梳理结构；\n"
+        "- Changes 数值高的目录在最近一段时间改动频繁，代表交付压力和问题集中度较高，建议优先补充测试和文档。\n\n"
+    )
+
+    # ========== 2c. 二级子目录风险画像 ==========
+    md.append("## 2c. 二级子目录风险画像 / Subdirectory Risk Profile (Depth=2)\n\n")
+    md.append(
+        "在上一节按“系统级目录”看整体之后，这一节进一步向下看一层，"
+        "例如 `nav_core/src`、`pwm_control_program/src` 等子目录，"
+        "用于回答：**“大目录内部，哪一块代码最重 / 最容易出问题？”**\n\n"
+    )
+
+    # 只保留代码量稍微有点规模的目录，避免全是零碎目录
+    filtered = {
+        d: st for d, st in dir_stats_lvl2.items()
+        if st["code_loc"] >= 200
+    }
+
+    # 按风险密度排序（二级目录）
+    rows = []
+    for d, st in sorted(filtered.items(), key=lambda kv: _risk_density(kv[1]), reverse=True):
+        rows.append(
+            [
+                d,
+                str(st["code_loc"]),
+                _fmt_pct(st["code_loc"], code_loc),
+                f"{_risk_density(st):.2f}",
+                str(st["risk_hits_sum"]),
+                str(st["changes"]),
+            ]
+        )
+
+    md.append(
+        _md_table(
+            ["Subdir (depth=2)", "Code LOC", "Code %", "Risk/LOC", "RiskHits", "Changes"],
+            rows[:15],  # 取前 15 个高风险子目录
+        )
+    )
+
+    md.append(
+        "解读建议：\n"
+        "- `Code LOC` 大、`Risk/LOC` 也高的子目录，是“体量 + 复杂度都高”的区域，"
+        "适合单独拉出来做一次专题重构；\n"
+        "- `Changes` 高说明近期改动频繁，可以结合 Git 记录，确认是否存在需求变动频繁或设计不稳定的问题；\n"
+        "- 对于关键子目录（例如控制回路、导航算法、通信协议等），"
+        "可以在评审会议中单独展示这一节的表格，作为后续工作量的定量依据。\n\n"
+    )
 
     # ========== 3. 高风险文件 ==========
     md.append("## 3. 高风险文件（综合评分） / Top Risk Files (Composite Score)\n\n")
@@ -242,10 +455,7 @@ def render(summary: Dict) -> str:
         md.append("\n")
 
     md.append("### 5.2 高频被引用头文件 / Top Included Headers\n\n")
-    rows = [
-        [x["header"], str(x["count"])]
-        for x in deps["top_headers"][:20]
-    ]
+    rows = [[x["header"], str(x["count"])] for x in deps["top_headers"][:20]]
     md.append(_md_table(["Header", "Include Count"], rows))
 
     # ========== 6. 风险关键字扫描 ==========
@@ -299,10 +509,7 @@ def render(summary: Dict) -> str:
         md.append(
             f"- 分析窗口 (Window)：最近 **{git['days']}** 天内的提交记录\n\n"
         )
-        rows = [
-            [x["path"], str(x["changes"])]
-            for x in git["hot_files"][:20]
-        ]
+        rows = [[x["path"], str(x["changes"])] for x in git["hot_files"][:20]]
         md.append(_md_table(["File", "Changes"], rows))
         md.append(
             "这些文件往往兼具两种特征：**“经常被修改” + “本身较复杂”**，\n"
@@ -313,9 +520,7 @@ def render(summary: Dict) -> str:
 
     # ========== 8. 建议行动 ==========
     md.append("## 8. 建议行动（按优先级） / Suggested Actions (Prioritized)\n\n")
-    md.append(
-        "从工程管理和质量提升的角度，推荐按以下顺序推进：\n\n"
-    )
+    md.append("从工程管理和质量提升的角度，推荐按以下顺序推进：\n\n")
     md.append(
         "1) **聚焦 Top Risk Files**：\n"
         "   - 拆分超长函数，降低嵌套层次；\n"
@@ -342,6 +547,11 @@ def render(summary: Dict) -> str:
         "简单解释工程当前完成度和后续工作量的大致方向。\n\n"
     )
 
-    md.append("_本报告由自动化工具生成，无需手工编辑。如需再次评估，可在项目根目录重新运行审计脚本。_\n")
+    md.append(
+        "_本报告由自动化工具生成，无需手工编辑。如需再次评估，可在项目根目录重新运行审计脚本。_\n"
+    )
 
     return "".join(md)
+
+
+
