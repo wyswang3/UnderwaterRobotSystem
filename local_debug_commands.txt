@@ -1,0 +1,209 @@
+
+
+---
+
+# 📄 `local_debug_commands.txt`
+
+**UnderwaterRobotSystem 本机联调（无 STM32）标准启动流程**
+
+> 目标：
+> 在 **同一台 Ubuntu 电脑** 上验证
+> **GCS(TUI) ⇄ pwm_control_program ⇄ Dummy PWM 后端**
+> 的完整通信链路（UDP + Session + DOF）
+
+---
+
+## 0️⃣ 通用约定（重要）
+
+* **所有进程都运行在同一台机器**
+* 通信使用 `127.0.0.1`
+* 统一端口约定：
+
+| 角色                         | IP        | 端口        |
+| -------------------------- | --------- | --------- |
+| 控制端（pwm_control_program）监听 | 0.0.0.0   | **14600** |
+| GCS(TUI) 绑定本地              | 0.0.0.0   | **14551** |
+| GCS → 控制端目标                | 127.0.0.1 | **14600** |
+
+---
+
+## 1️⃣ 终端 A：启动 **控制端（Dummy 模式）**
+
+📍 目录（示例）：
+
+```bash
+cd ~/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/build
+```
+
+📌 启动命令（**标准命令，推荐直接复制**）：
+
+```bash
+./pwm_control_program_build/pwm_control_program \
+  --config ~/orangepi/urov_ws/configs/pwm_client_dummy.yaml \
+  --control-config ../pwm_control_program/config/control_params.yaml
+```
+
+### ✅ 你必须看到的关键信息（缺一不可）
+
+```text
+[PwmClient] pwm_client.yaml loaded OK. backend=DUMMY
+[ControlLoop] starting, loop_hz=100 Hz, active_controller=manual
+[GcsLinkUdp] bind_port=14600 ...
+```
+
+### ❌ 异常判断
+
+| 现象                 | 说明                 |
+| ------------------ | ------------------ |
+| backend=STM32      | Dummy 没生效，配置路径错误   |
+| 没有 bind_port=14600 | UDP 没监听，GCS 永远握手失败 |
+| rx_packets 永远是 0   | GCS 根本没打到这个进程      |
+
+---
+
+## 2️⃣ 终端 B：启动 **GCS TUI**
+
+📍 目录：
+
+```bash
+cd ~/orangepi/UnderWaterRobotGCS
+```
+
+📌 启动命令（推荐固定）：
+
+```bash
+export UROGCS_ROV_IP=127.0.0.1
+export UROGCS_ROV_PORT=14550
+export UROGCS_BIND_IP=0.0.0.0
+export UROGCS_BIND_PORT=14551
+
+PYTHONPATH=./src python -m urogcs.app.tui_main
+```
+
+### ✅ 正常成功的输出应该是
+
+```text
+[TUI] target=127.0.0.1:14600 bind=0.0.0.0:14551
+[TUI] starting handshake...
+[TUI] handshake OK. session_id=0 established=True
+[TUI] running. Ctrl+C to quit.
+```
+
+并且后续看到周期性输出：
+
+```text
+[CMD] estop=0 mode=Manual surge=+0.00 sway=+0.00 ...
+```
+
+### ❌ 异常判断
+
+| 报错                      | 含义             |
+| ----------------------- | -------------- |
+| handshake failed        | 控制端没回 ACK      |
+| session not established | 控制端未 accept 会话 |
+| 一直 estop=0 但 TX 失败      | 会话未建立          |
+
+---
+
+## 3️⃣ 终端 C（辅助）：端口与抓包验证（必要时）
+
+### 3.1 查看端口监听情况
+
+
+启动服务端：
+
+```bash
+
+cd ~/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/build
+
+./comm_gcs_build/gcs_server --ip 0.0.0.0 --port 14550 --telem-hz 10
+
+```bash
+
+
+```bash
+ss -lunpt | grep 14600
+```bash
+
+✅ 正常：
+
+```text
+udp UNCONN ... 0.0.0.0:14600 users:(("pwm_control_program",pid=...))
+```
+
+---
+
+### 3.2 抓包确认 GCS → 控制端是否真的发包
+
+```bash
+sudo tcpdump -ni lo udp port 14600 -vv
+sudo tcpdump -ni lo -vv udp and '(port 14550 or port 14551)'
+
+```
+
+✅ 正常你会看到：
+
+```text
+127.0.0.1.xxxxx > 127.0.0.1.14600: UDP, length ...
+```
+
+❌ 如果这里什么都没有：
+
+* GCS 根本没发
+* 或 target IP/port 写错
+
+---
+
+## 4️⃣ 典型联调判断流程（很重要）
+
+### 情况 A：
+
+`tcpdump` 有包，但控制端 `rx_packets=0`
+➡ **UDP socket 没读到包**
+→ 99% 是 **端口 / 进程 / bind 错误**
+
+---
+
+### 情况 B：
+
+`rx_packets` 在涨，但 `tx_packets=0`
+➡ 包到了，但 **上层拒绝（peer / whitelist / session）**
+
+---
+
+### 情况 C：
+
+`tx_packets` 在涨，但 TUI 仍 handshake failed
+➡ 控制端回包了，但 **发给了错误 peer 或 TUI bind 端口不对**
+
+---
+
+## 5️⃣ 强烈建议的文件放置位置
+
+把这个文件保存为：
+
+```text
+~/orangepi/urov_ws/docs/local_debug_commands.txt
+```
+
+并在你的项目 README 中加一句：
+
+> 本机联调请严格按 `urov_ws/docs/local_debug_commands.txt` 执行
+
+---
+
+## 6️⃣ 下一步我建议你做的事（很关键）
+
+你现在已经 **90% 接近问题根因** 了，接下来只差一步：
+
+👉 **把控制端 1Hz 输出贴一段完整日志给我**（包含 `rx_packets / tx_packets / peer / session_established`）
+
+我可以直接告诉你一句话式结论，例如：
+
+> “包到了，但被 peer 锁拒绝”
+> “握手解析通过，但 nonce 校验失败”
+> “ACK 已发，但发往错误端口”
+
+到那一步，我们基本就“宣告本机联调成功”，剩下只是细节修补。
+
+如果你愿意，下一步我也可以帮你把这套流程 **写成 `tmux` 或 `bash` 启动脚本**，一条命令拉起三个窗口，彻底进入工程态。
