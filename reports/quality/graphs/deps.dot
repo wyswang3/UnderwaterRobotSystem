@@ -1,18 +1,18 @@
 digraph deps {
   rankdir=LR;
   node [shape=box];
-  "UnderwaterRobotSystem" -> "(root)" [label="75"];
-  "UnderwaterRobotSystem" -> "gateway" [label="51"];
-  "UnderwaterRobotSystem" -> "shared" [label="46"];
-  "UnderwaterRobotSystem" -> "control_core" [label="44"];
-  "UnderwaterRobotSystem" -> "sys" [label="37"];
+  "UnderwaterRobotSystem" -> "(root)" [label="81"];
+  "UnderwaterRobotSystem" -> "shared" [label="53"];
+  "UnderwaterRobotSystem" -> "gateway" [label="53"];
+  "UnderwaterRobotSystem" -> "nav_core" [label="50"];
+  "UnderwaterRobotSystem" -> "control_core" [label="49"];
+  "UnderwaterRobotSystem" -> "sys" [label="35"];
   "UnderwaterRobotSystem" -> "io" [label="33"];
-  "UnderwaterRobotSystem" -> "nav_core" [label="25"];
-  "UnderwaterRobotSystem" -> "utils" [label="14"];
+  "UnderwaterRobotSystem" -> "utils" [label="16"];
   "UnderwaterRobotSystem" -> "platform" [label="11"];
   "UnderwaterRobotSystem" -> "controllers" [label="10"];
-  "UnderwaterRobotSystem" -> "proto_gcs" [label="9"];
-  "UnderwaterRobotSystem" -> "yaml-cpp" [label="6"];
+  "UnderwaterRobotSystem" -> "yaml-cpp" [label="8"];
+  "UnderwaterRobotSystem" -> "proto_gcs" [label="8"];
   "UnderwaterRobotSystem" -> "arpa" [label="4"];
   "UnderwaterRobotSystem" -> "netinet" [label="3"];
   "UnderwaterRobotSystem" -> "Eigen" [label="2"];

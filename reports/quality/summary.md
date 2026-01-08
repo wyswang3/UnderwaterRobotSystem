@@ -8,18 +8,18 @@
 ## 0. 概览 / Executive Summary
 
 - 项目根目录 (Project root)：`/home/wys/orangepi`
-- 扫描文件数 (Files scanned)：**268**
-- 代码总行数 (Code LOC)：**27558**，约折合 **275.6 页** 技术书（按每页 ~100 行估算）
-- 总行数 (Total LOC)：**42122**（其中空行 7142 行）
-- 注释行数 (Comment LOC)：**7422**，注释比例 (Comment ratio)：**21.2%** —— 注释比例还可以，可在复杂模块继续增强。
-- 分支关键字计数 (Branch tokens, 反映 if/循环等复杂度大致数量)：**4887**
-- 复杂度 / 风险综合水平 (Overall risk level)：**高 / High** (平均风险评分 ~853.9，最高 ~5789.0)
+- 扫描文件数 (Files scanned)：**303**
+- 代码总行数 (Code LOC)：**32170**，约折合 **321.7 页** 技术书（按每页 ~100 行估算）
+- 总行数 (Total LOC)：**51924**（其中空行 8747 行）
+- 注释行数 (Comment LOC)：**11007**，注释比例 (Comment ratio)：**25.5%** —— 注释比例还可以，可在复杂模块继续增强。
+- 分支关键字计数 (Branch tokens, 反映 if/循环等复杂度大致数量)：**5563**
+- 复杂度 / 风险综合水平 (Overall risk level)：**高 / High** (平均风险评分 ~869.4，最高 ~8403.0)
 - 规模评价 (Project size)：代码规模较大，适合按照子系统（驱动 / 控制 / 通信等）分级管理。
 - Git 热点分析 (Git hotspots)：当前未启用 git 热点分析，可在运行工具时增加 `--git-days` 参数来观察“最近修改最频繁”的文件。
 
 简单来说：如果你不是写代码的人，可以把这个工程理解为——
 
-- 大约有 **275.6 页** 的“代码说明书”；
+- 大约有 **321.7 页** 的“代码说明书”；
 - 其中一部分文件结构比较复杂，是未来维护和出问题的重点区域；
 - 报告后面列出的 Top 表格，就是“最值得优先关注”的那一批文件。
 
@@ -29,18 +29,18 @@
 
 | Lang | Files | Code LOC | Comment LOC | Total LOC | Code % |
 | --- | --- | --- | --- | --- | --- |
-| cpp | 162 | 18058 | 5182 | 28296 | 65.5% |
-| python | 98 | 8786 | 2240 | 12984 | 31.9% |
-| cmake | 8 | 714 | 0 | 842 | 2.6% |
+| cpp | 187 | 21243 | 8093 | 35539 | 66.0% |
+| python | 107 | 10166 | 2914 | 15481 | 31.6% |
+| cmake | 9 | 761 | 0 | 904 | 2.4% |
 ## 2. 按顶层目录的代码量 / LOC by Top-level Directory
 
 这一部分回答：**“控制 / 通信 / 导航 / 公共库等大模块，各自大概有多少代码？”**
 
 | Top Dir | Code LOC | Code % |
 | --- | --- | --- |
-| UnderwaterRobotSystem | 24444 | 88.7% |
-| UnderWaterRobotGCS | 1753 | 6.4% |
-| tools | 1361 | 4.9% |
+| UnderwaterRobotSystem | 28578 | 88.8% |
+| UnderWaterRobotGCS | 2231 | 6.9% |
+| tools | 1361 | 4.2% |
 ## 2b. 目录风险画像 / Directory Risk Profile
 
 这一部分从“目录”的角度综合看工程结构：
@@ -50,17 +50,17 @@
 
 | Dir | Files | Code LOC | Comment LOC | Code % | AvgRisk | MaxRisk | TODO | Changes |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| UnderwaterRobotSystem | 230 | 24444 | 6939 | 88.7% | 920.9 | 5789.0 | 38 | 0 |
-| UnderWaterRobotGCS | 27 | 1753 | 301 | 6.4% | 269.5 | 3437.0 | 0 | 0 |
-| tools | 11 | 1361 | 182 | 4.9% | 885.9 | 3863.0 | 33 | 0 |
+| UnderwaterRobotSystem | 257 | 28578 | 10092 | 88.8% | 949.7 | 8403.0 | 43 | 0 |
+| UnderWaterRobotGCS | 35 | 2231 | 733 | 6.9% | 273.9 | 4683.0 | 0 | 0 |
+| tools | 11 | 1361 | 182 | 4.2% | 885.9 | 3863.0 | 33 | 0 |
 
 ### 高风险目录（按风险密度排序） / High-risk Directories by Risk Density
 
 | Dir | Code LOC | Risk/LOC | RiskHits | Changes |
 | --- | --- | --- | --- | --- |
-| UnderwaterRobotSystem | 24444 | 8.67 | 1654 | 0 |
+| UnderwaterRobotSystem | 28578 | 8.54 | 1844 | 0 |
 | tools | 1361 | 7.16 | 179 | 0 |
-| UnderWaterRobotGCS | 1753 | 4.15 | 76 | 0 |
+| UnderWaterRobotGCS | 2231 | 4.30 | 87 | 0 |
 从上表可以看到：
 - 代码量最大的目录承载了主要业务，是未来维护和功能扩展的重点；
 - 部分目录虽然代码不多，但 Risk/LOC 较高，说明“单位代码复杂度较高”，适合单独梳理结构；
@@ -72,11 +72,12 @@
 
 | Subdir (depth=2) | Code LOC | Code % | Risk/LOC | RiskHits | Changes |
 | --- | --- | --- | --- | --- | --- |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV | 15616 | 56.7% | 9.09 | 1052 | 0 |
-| UnderwaterRobotSystem/Underwater-robot-navigation | 7157 | 26.0% | 8.23 | 387 | 0 |
-| UnderwaterRobotSystem/UnderwaterRobotSystem | 1666 | 6.0% | 6.54 | 215 | 0 |
-| tools/quality | 1178 | 4.3% | 6.05 | 179 | 0 |
-| UnderWaterRobotGCS/src | 1753 | 6.4% | 4.15 | 76 | 0 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV | 15965 | 49.6% | 9.26 | 1029 | 0 |
+| UnderwaterRobotSystem/Underwater-robot-navigation | 10321 | 32.1% | 8.10 | 544 | 0 |
+| UnderwaterRobotSystem/UnderwaterRobotSystem | 1824 | 5.7% | 6.14 | 225 | 0 |
+| tools/quality | 1178 | 3.7% | 6.05 | 179 | 0 |
+| UnderWaterRobotGCS/src | 2231 | 6.9% | 4.30 | 87 | 0 |
+| UnderwaterRobotSystem/shared | 463 | 1.4% | 3.12 | 46 | 0 |
 解读建议：
 - `Code LOC` 大、`Risk/LOC` 也高的子目录，是“体量 + 复杂度都高”的区域，适合单独拉出来做一次专题重构；
 - `Changes` 高说明近期改动频繁，可以结合 Git 记录，确认是否存在需求变动频繁或设计不稳定的问题；
@@ -88,26 +89,26 @@
 
 | File | RiskScore | Code LOC | MaxFuncLen | MaxNest | BranchTok | CommentRatio |
 | --- | --- | --- | --- | --- | --- | --- |
-| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_daemon.cpp | 5789 | 377 | 324 | 5 | 44 | 0.13 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/loop/control_loop_run.cpp | 5768 | 253 | 325 | 5 | 55 | 0.12 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_server.cpp | 4964 | 409 | 261 | 6 | 50 | 0.12 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/loop/control_loop_run.cpp | 8403 | 329 | 486 | 5 | 73 | 0.31 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp | 5282 | 387 | 257 | 5 | 105 | 0.08 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/nav_viewd.cpp | 4788 | 330 | 238 | 7 | 76 | 0.13 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp | 4593 | 363 | 218 | 5 | 95 | 0.07 |
+| UnderWaterRobotGCS/src/urogcs/app/tui/tui_loop.py | 4683 | 200 | 261 | 7 | 36 | 0.25 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/control_guard.cpp | 4652 | 269 | 257 | 5 | 41 | 0.22 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/uwnav/drivers/dvl/hover_h1000/io.py | 4636 | 564 | 200 | 7 | 99 | 0.25 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_core/estimator/graph_smoother_2d.cpp | 4478 | 296 | 250 | 4 | 34 | 0.24 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent/intent_keyboard_source.cpp | 4108 | 356 | 192 | 4 | 89 | 0.06 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent/intent_arbiter.cpp | 4066 | 215 | 213 | 4 | 62 | 0.15 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent/intent_keyboard_source.cpp | 3984 | 330 | 186 | 4 | 88 | 0.07 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_core/app/nav_daemon_config.cpp | 3980 | 207 | 219 | 6 | 31 | 0.17 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/app_context.cpp | 3910 | 254 | 216 | 3 | 37 | 0.07 |
 | tools/quality/audit.py | 3863 | 204 | 229 | 4 | 8 | 0.15 |
 | UnderwaterRobotSystem/UnderwaterRobotSystem/tools/quality/audit.py | 3863 | 204 | 229 | 4 | 8 | 0.15 |
-| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/dvl_driver.cpp | 3805 | 471 | 162 | 6 | 83 | 0.21 |
-| UnderWaterRobotGCS/src/urogcs/app/tui_main.py | 3437 | 249 | 164 | 7 | 56 | 0.13 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/app_context.cpp | 3422 | 224 | 186 | 3 | 36 | 0.08 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_core/estimator/nav_health_monitor.cpp | 3501 | 148 | 191 | 5 | 36 | 0.38 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_core/app/nav_daemon.cpp | 3378 | 365 | 163 | 6 | 41 | 0.14 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/intentd.cpp | 3360 | 198 | 190 | 5 | 14 | 0.08 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/teleop_local.cpp | 3257 | 313 | 136 | 6 | 83 | 0.10 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/nav_view_dump.cpp | 3248 | 383 | 135 | 5 | 80 | 0.09 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_client.cpp | 3170 | 339 | 137 | 4 | 52 | 0.04 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/controllers/manual_controller.cpp | 3014 | 59 | 189 | 2 | 5 | 0.70 |
-| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/imu_driver_wit.cpp | 2828 | 384 | 116 | 5 | 63 | 0.20 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/utils/config_loader_pwm_client.cpp | 2787 | 170 | 135 | 5 | 49 | 0.11 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/utils/config_loader_alloc.cpp | 2775 | 145 | 146 | 5 | 30 | 0.01 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/platform/pwm_client.cpp | 3224 | 403 | 139 | 5 | 67 | 0.11 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_core/drivers/dvl_driver.cpp | 3150 | 462 | 128 | 4 | 76 | 0.15 |
 ## 4. 超长函数（重构候选） / Long Functions (Refactor Candidates)
 
 这一部分用来回答：**“哪些函数太长 / 嵌套太深，需要拆分？”**
@@ -116,26 +117,26 @@
 
 | File | Function | Lines | Len | Nest |
 | --- | --- | --- | --- | --- |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/loop/control_loop_run.cpp | ControlLoop::run | 26-350 | 325 | 5 |
-| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_daemon.cpp | main | 197-520 | 324 | 5 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_server.cpp | main | 290-550 | 261 | 6 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/loop/control_loop_run.cpp | ControlLoop::run | 73-558 | 486 | 5 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/loop/control_loop_run.cpp | while | 201-551 | 351 | 4 |
+| UnderWaterRobotGCS/src/urogcs/app/tui/tui_loop.py | on_log | 59-319 | 261 | 7 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp | GcsSession::handle_parsed_ | 97-353 | 257 | 5 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/control_guard.cpp | ControlGuard::step | 161-417 | 257 | 5 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_core/estimator/graph_smoother_2d.cpp | GraphSmoother2D::solve | 207-456 | 250 | 3 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/nav_viewd.cpp | main | 207-444 | 238 | 7 |
 | tools/quality/audit.py | main | 42-270 | 229 | 4 |
 | UnderwaterRobotSystem/UnderwaterRobotSystem/tools/quality/audit.py | main | 42-270 | 229 | 4 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp | GcsSession::handle_parsed_ | 97-314 | 218 | 5 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_core/app/nav_daemon_config.cpp | load_nav_daemon_config_from_yaml | 70-288 | 219 | 6 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/app_context.cpp | build_app_context | 110-325 | 216 | 3 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent/intent_arbiter.cpp | IntentArbiter::decide | 94-306 | 213 | 4 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp | switch | 147-352 | 206 | 4 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/uwnav/drivers/dvl/hover_h1000/io.py | stop_listening | 699-898 | 200 | 6 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent/intent_keyboard_source.cpp | IntentKeyboardSource::handle_event_ | 198-389 | 192 | 4 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_core/estimator/nav_health_monitor.cpp | NavHealthMonitor::evaluate | 100-290 | 191 | 5 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/intentd.cpp | main | 78-267 | 190 | 5 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/loop/control_loop_run.cpp | while | 154-343 | 190 | 4 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/controllers/manual_controller.cpp | ManualController::compute | 27-215 | 189 | 2 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent/intent_keyboard_source.cpp | IntentKeyboardSource::handle_event_ | 186-371 | 186 | 4 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/app_context.cpp | build_app_context | 110-295 | 186 | 3 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent/intent_keyboard_source.cpp | switch | 196-370 | 175 | 3 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp | switch | 147-313 | 167 | 4 |
-| UnderWaterRobotGCS/src/urogcs/app/tui_main.py | on_log | 201-364 | 164 | 7 |
-| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/dvl_driver.cpp | DvlDriver::parseLine | 446-607 | 162 | 6 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/nav_viewd.cpp | while | 289-438 | 150 | 6 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/utils/config_loader_alloc.cpp | load_thruster_allocation_config | 21-166 | 146 | 5 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_client.cpp | handshake | 163-299 | 137 | 4 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent/intent_keyboard_source.cpp | switch | 206-388 | 183 | 3 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_server.cpp | main | 46-222 | 177 | 3 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_core/app/nav_daemon.cpp | run_main_loop | 269-431 | 163 | 6 |
 ## 5. 头文件依赖健康度（C/C++） / Include Dependency Health (C/C++)
 
 这一部分关注：**“模块之间的耦合关系是否清晰，有没有互相环状依赖？”**
@@ -147,60 +148,60 @@
 
 | Header | Include Count |
 | --- | --- |
-| unistd.h | 18 |
-| fcntl.h | 16 |
-| sys/stat.h | 14 |
+| unistd.h | 19 |
+| fcntl.h | 17 |
+| nav_core/core/types.hpp | 15 |
+| sys/stat.h | 13 |
 | sys/mman.h | 12 |
-| shared/msg/control_intent.hpp | 10 |
-| nav_core/types.hpp | 9 |
-| proto_gcs/gcs_protocol.hpp | 9 |
-| shared/msg/nav_state.hpp | 8 |
-| shared/msg/key_event.hpp | 8 |
-| shared/msg/nav_state_view.hpp | 8 |
-| control_core/control_mode.hpp | 8 |
+| shared/msg/control_intent.hpp | 12 |
+| shared/msg/nav_state.hpp | 10 |
+| shared/msg/key_event.hpp | 10 |
+| shared/msg/nav_state_view.hpp | 9 |
+| control_core/control_mode.hpp | 9 |
+| yaml-cpp/yaml.h | 8 |
+| proto_gcs/gcs_protocol.hpp | 8 |
 | control_core/control_intent.hpp | 8 |
 | gateway/bytes.hpp | 7 |
 | control_core/control_loop.hpp | 7 |
 | control_core/control_types.hpp | 7 |
-| gateway/udp/udp_endpoint.hpp | 6 |
 | platform/timebase.hpp | 6 |
-| yaml-cpp/yaml.h | 6 |
-| gateway/codec/gcs_codec.hpp | 5 |
-| shared/shm/control_intent_shm.hpp | 5 |
+| utils/config_loader.hpp | 6 |
+| utils/detail/config_log.hpp | 6 |
+| time.h | 5 |
 ## 6. 风险扫描 / Risk Scan
 
 通过扫描 TODO/FIXME/HACK、危险 C 函数、可疑 C++/Python 写法等，给出一些“可能需要额外注意”的位置。
 
-- TODO / FIXME / HACK / XXX 总数：**71**
+- TODO / FIXME / HACK / XXX 总数：**76**
 - 危险 C 函数（如 strcpy/memcpy 等）命中次数：**58**
-- 危险 C++ 模式命中次数：**93**
-- 危险 Python 模式命中次数：**66**
-- 控制相关关键字（estop/failsafe 等）命中次数：**2006**
+- 危险 C++ 模式命中次数：**98**
+- 危险 Python 模式命中次数：**88**
+- 控制相关关键字（estop/failsafe 等）命中次数：**2273**
 
 ### 6.1 高风险命中文件 / Top Risk-hit Files
 
 | File | Score | TODO | C-func | C++pat | Pypat | CtrlKW |
 | --- | --- | --- | --- | --- | --- | --- |
+| UnderwaterRobotSystem/Underwater-robot-navigation/uwnav/drivers/dvl/hover_h1000/io.py | 96 | 0 | 0 | 0 | 16 | 0 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/orangepi_send/src/libpwm_host.c | 89 | 0 | 11 | 0 | 0 | 107 |
 | tools/quality/report_md.py | 71 | 14 | 0 | 0 | 0 | 4 |
+| UnderwaterRobotSystem/UnderwaterRobotSystem/tools/quality/report_md.py | 71 | 14 | 0 | 0 | 0 | 4 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/orangepi_send/src/PwmFrameBuilder.cpp | 67 | 0 | 3 | 7 | 0 | 4 |
-| UnderwaterRobotSystem/UnderwaterRobotSystem/tools/quality/report_md.py | 61 | 12 | 0 | 0 | 0 | 4 |
+| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp | 62 | 1 | 7 | 0 | 0 | 40 |
 | tools/quality/risk_scan.py | 60 | 12 | 0 | 0 | 0 | 0 |
-| UnderwaterRobotSystem/Underwater-robot-navigation/uwnav/drivers/dvl/hover_h1000/io.py | 60 | 0 | 0 | 0 | 10 | 0 |
 | UnderwaterRobotSystem/UnderwaterRobotSystem/tools/quality/risk_scan.py | 60 | 12 | 0 | 0 | 0 | 0 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp | 49 | 0 | 6 | 0 | 0 | 37 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/apps/acquire/DVL_logger.py | 54 | 0 | 0 | 0 | 9 | 0 |
 | UnderwaterRobotSystem/Underwater-robot-navigation/uwnav/drivers/dvl/hover_h1000/protocol.py | 48 | 0 | 0 | 0 | 8 | 0 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/uwnav/sensors/imu.py | 48 | 0 | 0 | 0 | 8 | 0 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/orangepi_send/src/UdpSender.cpp | 48 | 0 | 0 | 8 | 0 | 0 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/keys/key_event_subscriber_shm.cpp | 43 | 0 | 3 | 3 | 0 | 2 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/apps/acquire/imu_logger.py | 42 | 0 | 0 | 0 | 7 | 0 |
 | UnderwaterRobotSystem/Underwater-robot-navigation/apps/tools/volt32_data_verifier.py | 36 | 0 | 0 | 0 | 6 | 0 |
 | UnderwaterRobotSystem/Underwater-robot-navigation/apps/acquire/Volt32_logger.py | 36 | 0 | 0 | 0 | 6 | 0 |
-| UnderwaterRobotSystem/Underwater-robot-navigation/uwnav/sensors/imu.py | 36 | 0 | 0 | 0 | 6 | 0 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_client.cpp | 33 | 0 | 4 | 0 | 0 | 90 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/include/gateway/codec/packet_view.hpp | 33 | 0 | 4 | 0 | 0 | 10 |
 | UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/include/gateway/codec/gcs_codec.hpp | 33 | 0 | 4 | 0 | 0 | 31 |
 | UnderwaterRobotSystem/Underwater-robot-navigation/apps/tools/imu_data_verifier.py | 30 | 0 | 0 | 0 | 5 | 0 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/tests/test_codec.cpp | 25 | 0 | 3 | 0 | 0 | 15 |
-| UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/include/control_core/control_loop.hpp | 25 | 0 | 0 | 4 | 0 | 34 |
+| UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/include/nav_core/drivers/dvl_driver.hpp | 29 | 1 | 0 | 4 | 0 | 0 |
 ## 7. Git 热点文件（可选） / Git Hotspots (Optional)
 
 - 当前未启用 (Disabled)：disabled
