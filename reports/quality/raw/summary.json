@@ -7,11 +7,11 @@
   "loc": {
     "totals": {
       "files": 303,
-      "total_lines": 51924,
-      "blank_lines": 8747,
-      "comment_lines": 11007,
-      "code_lines": 32170,
-      "branch_tokens": 5563
+      "total_lines": 51984,
+      "blank_lines": 8748,
+      "comment_lines": 10996,
+      "code_lines": 32240,
+      "branch_tokens": 5561
     },
     "by_lang": {
       "python": {
@@ -28,14 +28,14 @@
       },
       "cpp": {
         "files": 187,
-        "code_lines": 21243,
-        "comment_lines": 8093,
-        "total_lines": 35539
+        "code_lines": 21313,
+        "comment_lines": 8082,
+        "total_lines": 35599
       }
     },
     "by_topdir": {
       "tools": 1361,
-      "UnderwaterRobotSystem": 28578,
+      "UnderwaterRobotSystem": 28648,
       "UnderWaterRobotGCS": 2231
     },
     "files": [
@@ -1122,10 +1122,10 @@
       {
         "rel_path": "UnderwaterRobotSystem/shared/shm/control_intent_shm.hpp",
         "lang": "cpp",
-        "total_lines": 50,
+        "total_lines": 53,
         "blank_lines": 12,
-        "comment_lines": 6,
-        "code_lines": 32,
+        "comment_lines": 7,
+        "code_lines": 34,
         "branch_tokens": 0
       },
       {
@@ -1212,10 +1212,10 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/proto_gcs/include/proto_gcs/gcs_protocol.hpp",
         "lang": "cpp",
-        "total_lines": 279,
-        "blank_lines": 59,
-        "comment_lines": 37,
-        "code_lines": 183,
+        "total_lines": 285,
+        "blank_lines": 60,
+        "comment_lines": 40,
+        "code_lines": 185,
         "branch_tokens": 28
       },
       {
@@ -1230,11 +1230,11 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_client.cpp",
         "lang": "cpp",
-        "total_lines": 432,
-        "blank_lines": 80,
-        "comment_lines": 51,
-        "code_lines": 301,
-        "branch_tokens": 30
+        "total_lines": 449,
+        "blank_lines": 81,
+        "comment_lines": 59,
+        "code_lines": 309,
+        "branch_tokens": 25
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/intent_dump.cpp",
@@ -1275,11 +1275,11 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_server.cpp",
         "lang": "cpp",
-        "total_lines": 222,
-        "blank_lines": 42,
-        "comment_lines": 30,
-        "code_lines": 150,
-        "branch_tokens": 23
+        "total_lines": 255,
+        "blank_lines": 48,
+        "comment_lines": 33,
+        "code_lines": 174,
+        "branch_tokens": 25
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/teleop_local.cpp",
@@ -1311,11 +1311,11 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/intent_publisher_shm.cpp",
         "lang": "cpp",
-        "total_lines": 271,
-        "blank_lines": 46,
-        "comment_lines": 27,
+        "total_lines": 293,
+        "blank_lines": 48,
+        "comment_lines": 47,
         "code_lines": 198,
-        "branch_tokens": 26
+        "branch_tokens": 27
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/udp/udp_endpoint.cpp",
@@ -1347,11 +1347,11 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp",
         "lang": "cpp",
-        "total_lines": 508,
+        "total_lines": 498,
         "blank_lines": 86,
-        "comment_lines": 35,
-        "code_lines": 387,
-        "branch_tokens": 105
+        "comment_lines": 27,
+        "code_lines": 385,
+        "branch_tokens": 104
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent_subscriber_shm.cpp",
@@ -1500,10 +1500,10 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/include/gateway/apps/gcs_client.hpp",
         "lang": "cpp",
-        "total_lines": 201,
-        "blank_lines": 15,
+        "total_lines": 204,
+        "blank_lines": 16,
         "comment_lines": 151,
-        "code_lines": 35,
+        "code_lines": 37,
         "branch_tokens": 4
       },
       {
@@ -1671,11 +1671,11 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/platform/pwm_client.cpp",
         "lang": "cpp",
-        "total_lines": 561,
-        "blank_lines": 106,
-        "comment_lines": 52,
-        "code_lines": 403,
-        "branch_tokens": 67
+        "total_lines": 508,
+        "blank_lines": 95,
+        "comment_lines": 30,
+        "code_lines": 383,
+        "branch_tokens": 62
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/platform/timebase.cpp",
@@ -1707,11 +1707,11 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/control_guard.cpp",
         "lang": "cpp",
-        "total_lines": 419,
-        "blank_lines": 75,
-        "comment_lines": 75,
-        "code_lines": 269,
-        "branch_tokens": 41
+        "total_lines": 398,
+        "blank_lines": 70,
+        "comment_lines": 60,
+        "code_lines": 268,
+        "branch_tokens": 40
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/app_main.cpp",
@@ -1772,8 +1772,8 @@
         "lang": "cpp",
         "total_lines": 560,
         "blank_lines": 85,
-        "comment_lines": 146,
-        "code_lines": 329,
+        "comment_lines": 114,
+        "code_lines": 361,
         "branch_tokens": 73
       },
       {
@@ -1797,20 +1797,20 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/io/log/pwm_logger.cpp",
         "lang": "cpp",
-        "total_lines": 148,
-        "blank_lines": 28,
-        "comment_lines": 1,
-        "code_lines": 119,
-        "branch_tokens": 26
+        "total_lines": 186,
+        "blank_lines": 34,
+        "comment_lines": 10,
+        "code_lines": 142,
+        "branch_tokens": 31
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/io/input/intent_subscriber_shm.cpp",
         "lang": "cpp",
-        "total_lines": 264,
+        "total_lines": 286,
         "blank_lines": 44,
-        "comment_lines": 28,
+        "comment_lines": 50,
         "code_lines": 192,
-        "branch_tokens": 55
+        "branch_tokens": 57
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/io/input/key_event_subscriber_shm.cpp",
@@ -2832,15 +2832,6 @@
         "branch_tokens": 61
       },
       {
-        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/platform/pwm_client.cpp",
-        "lang": "cpp",
-        "total_lines": 561,
-        "blank_lines": 106,
-        "comment_lines": 52,
-        "code_lines": 403,
-        "branch_tokens": 67
-      },
-      {
         "rel_path": "UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_core/drivers/imu_driver_wit.cpp",
         "lang": "cpp",
         "total_lines": 598,
@@ -2861,11 +2852,11 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp",
         "lang": "cpp",
-        "total_lines": 508,
+        "total_lines": 498,
         "blank_lines": 86,
-        "comment_lines": 35,
-        "code_lines": 387,
-        "branch_tokens": 105
+        "comment_lines": 27,
+        "code_lines": 385,
+        "branch_tokens": 104
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/nav_view_dump.cpp",
@@ -2875,6 +2866,15 @@
         "comment_lines": 36,
         "code_lines": 383,
         "branch_tokens": 80
+      },
+      {
+        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/platform/pwm_client.cpp",
+        "lang": "cpp",
+        "total_lines": 508,
+        "blank_lines": 95,
+        "comment_lines": 30,
+        "code_lines": 383,
+        "branch_tokens": 62
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/orangepi_send/src/libpwm_host.c",
@@ -2893,6 +2893,15 @@
         "comment_lines": 58,
         "code_lines": 365,
         "branch_tokens": 41
+      },
+      {
+        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/loop/control_loop_run.cpp",
+        "lang": "cpp",
+        "total_lines": 560,
+        "blank_lines": 85,
+        "comment_lines": 114,
+        "code_lines": 361,
+        "branch_tokens": 73
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent/intent_keyboard_source.cpp",
@@ -2922,15 +2931,6 @@
         "branch_tokens": 76
       },
       {
-        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/loop/control_loop_run.cpp",
-        "lang": "cpp",
-        "total_lines": 560,
-        "blank_lines": 85,
-        "comment_lines": 146,
-        "code_lines": 329,
-        "branch_tokens": 73
-      },
-      {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/keys/key_event_subscriber_shm.cpp",
         "lang": "cpp",
         "total_lines": 406,
@@ -2958,6 +2958,15 @@
         "branch_tokens": 66
       },
       {
+        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_client.cpp",
+        "lang": "cpp",
+        "total_lines": 449,
+        "blank_lines": 81,
+        "comment_lines": 59,
+        "code_lines": 309,
+        "branch_tokens": 25
+      },
+      {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/CMakeLists.txt",
         "lang": "cmake",
         "total_lines": 358,
@@ -2965,15 +2974,6 @@
         "comment_lines": 0,
         "code_lines": 308,
         "branch_tokens": 86
-      },
-      {
-        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_client.cpp",
-        "lang": "cpp",
-        "total_lines": 432,
-        "blank_lines": 80,
-        "comment_lines": 51,
-        "code_lines": 301,
-        "branch_tokens": 30
       },
       {
         "rel_path": "UnderwaterRobotSystem/Underwater-robot-navigation/apps/tools/imu_data_verifier.py",
@@ -3041,11 +3041,11 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/control_guard.cpp",
         "lang": "cpp",
-        "total_lines": 419,
-        "blank_lines": 75,
-        "comment_lines": 75,
-        "code_lines": 269,
-        "branch_tokens": 41
+        "total_lines": 398,
+        "blank_lines": 70,
+        "comment_lines": 60,
+        "code_lines": 268,
+        "branch_tokens": 40
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/intent_dump.cpp",
@@ -4545,13 +4545,13 @@
       {
         "rel_path": "UnderwaterRobotSystem/shared/shm/control_intent_shm.hpp",
         "lang": "cpp",
-        "code_lines": 32,
-        "comment_lines": 6,
+        "code_lines": 34,
+        "comment_lines": 7,
         "branch_tokens": 0,
         "max_func_len": 0,
         "max_nest": 0,
-        "comment_ratio": 0.1579,
-        "risk_score": 32
+        "comment_ratio": 0.1707,
+        "risk_score": 34
       },
       {
         "rel_path": "UnderwaterRobotSystem/shared/shm/nav_state_view_shm.hpp",
@@ -4655,13 +4655,13 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/proto_gcs/include/proto_gcs/gcs_protocol.hpp",
         "lang": "cpp",
-        "code_lines": 183,
-        "comment_lines": 37,
+        "code_lines": 185,
+        "comment_lines": 40,
         "branch_tokens": 28,
         "max_func_len": 19,
         "max_nest": 2,
-        "comment_ratio": 0.1682,
-        "risk_score": 772
+        "comment_ratio": 0.1778,
+        "risk_score": 774
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/CMakeLists.txt",
@@ -4677,13 +4677,13 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_client.cpp",
         "lang": "cpp",
-        "code_lines": 301,
-        "comment_lines": 51,
-        "branch_tokens": 30,
-        "max_func_len": 101,
+        "code_lines": 309,
+        "comment_lines": 59,
+        "branch_tokens": 25,
+        "max_func_len": 117,
         "max_nest": 3,
-        "comment_ratio": 0.1449,
-        "risk_score": 2176
+        "comment_ratio": 0.1603,
+        "risk_score": 2384
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/intent_dump.cpp",
@@ -4732,13 +4732,13 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_server.cpp",
         "lang": "cpp",
-        "code_lines": 150,
-        "comment_lines": 30,
-        "branch_tokens": 23,
-        "max_func_len": 177,
+        "code_lines": 174,
+        "comment_lines": 33,
+        "branch_tokens": 25,
+        "max_func_len": 210,
         "max_nest": 3,
-        "comment_ratio": 0.1667,
-        "risk_score": 3109
+        "comment_ratio": 0.1594,
+        "risk_score": 3644
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/teleop_local.cpp",
@@ -4777,12 +4777,12 @@
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/intent_publisher_shm.cpp",
         "lang": "cpp",
         "code_lines": 198,
-        "comment_lines": 27,
-        "branch_tokens": 26,
+        "comment_lines": 47,
+        "branch_tokens": 27,
         "max_func_len": 90,
         "max_nest": 2,
-        "comment_ratio": 0.12,
-        "risk_score": 1836
+        "comment_ratio": 0.1918,
+        "risk_score": 1844
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/udp/udp_endpoint.cpp",
@@ -4820,13 +4820,13 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp",
         "lang": "cpp",
-        "code_lines": 387,
-        "comment_lines": 35,
-        "branch_tokens": 105,
-        "max_func_len": 257,
+        "code_lines": 385,
+        "comment_lines": 27,
+        "branch_tokens": 104,
+        "max_func_len": 255,
         "max_nest": 5,
-        "comment_ratio": 0.0829,
-        "risk_score": 5282
+        "comment_ratio": 0.0655,
+        "risk_score": 5242
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent_subscriber_shm.cpp",
@@ -5007,13 +5007,13 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/include/gateway/apps/gcs_client.hpp",
         "lang": "cpp",
-        "code_lines": 35,
+        "code_lines": 37,
         "comment_lines": 151,
         "branch_tokens": 4,
         "max_func_len": 5,
         "max_nest": 1,
-        "comment_ratio": 0.8118,
-        "risk_score": 182
+        "comment_ratio": 0.8032,
+        "risk_score": 184
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/include/gateway/apps/cli_args.hpp",
@@ -5216,13 +5216,13 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/platform/pwm_client.cpp",
         "lang": "cpp",
-        "code_lines": 403,
-        "comment_lines": 52,
-        "branch_tokens": 67,
-        "max_func_len": 139,
-        "max_nest": 5,
-        "comment_ratio": 0.1143,
-        "risk_score": 3224
+        "code_lines": 383,
+        "comment_lines": 30,
+        "branch_tokens": 62,
+        "max_func_len": 106,
+        "max_nest": 4,
+        "comment_ratio": 0.0726,
+        "risk_score": 2629
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/platform/timebase.cpp",
@@ -5260,13 +5260,13 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/control_guard.cpp",
         "lang": "cpp",
-        "code_lines": 269,
-        "comment_lines": 75,
-        "branch_tokens": 41,
-        "max_func_len": 257,
+        "code_lines": 268,
+        "comment_lines": 60,
+        "branch_tokens": 40,
+        "max_func_len": 236,
         "max_nest": 5,
-        "comment_ratio": 0.218,
-        "risk_score": 4652
+        "comment_ratio": 0.1829,
+        "risk_score": 4328
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/app_main.cpp",
@@ -5337,13 +5337,13 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/loop/control_loop_run.cpp",
         "lang": "cpp",
-        "code_lines": 329,
-        "comment_lines": 146,
+        "code_lines": 361,
+        "comment_lines": 114,
         "branch_tokens": 73,
         "max_func_len": 486,
         "max_nest": 5,
-        "comment_ratio": 0.3074,
-        "risk_score": 8403
+        "comment_ratio": 0.24,
+        "risk_score": 8435
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/io/nav/nav_view_shm_source.cpp",
@@ -5370,24 +5370,24 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/io/log/pwm_logger.cpp",
         "lang": "cpp",
-        "code_lines": 119,
-        "comment_lines": 1,
-        "branch_tokens": 26,
-        "max_func_len": 26,
-        "max_nest": 2,
-        "comment_ratio": 0.0083,
-        "risk_score": 797
+        "code_lines": 142,
+        "comment_lines": 10,
+        "branch_tokens": 31,
+        "max_func_len": 30,
+        "max_nest": 3,
+        "comment_ratio": 0.0658,
+        "risk_score": 960
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/io/input/intent_subscriber_shm.cpp",
         "lang": "cpp",
         "code_lines": 192,
-        "comment_lines": 28,
-        "branch_tokens": 55,
-        "max_func_len": 48,
-        "max_nest": 3,
-        "comment_ratio": 0.1273,
-        "risk_score": 1472
+        "comment_lines": 50,
+        "branch_tokens": 57,
+        "max_func_len": 52,
+        "max_nest": 4,
+        "comment_ratio": 0.2066,
+        "risk_score": 1588
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/io/input/key_event_subscriber_shm.cpp",
@@ -6560,24 +6560,24 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/loop/control_loop_run.cpp",
         "lang": "cpp",
-        "code_lines": 329,
-        "comment_lines": 146,
+        "code_lines": 361,
+        "comment_lines": 114,
         "branch_tokens": 73,
         "max_func_len": 486,
         "max_nest": 5,
-        "comment_ratio": 0.3074,
-        "risk_score": 8403
+        "comment_ratio": 0.24,
+        "risk_score": 8435
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp",
         "lang": "cpp",
-        "code_lines": 387,
-        "comment_lines": 35,
-        "branch_tokens": 105,
-        "max_func_len": 257,
+        "code_lines": 385,
+        "comment_lines": 27,
+        "branch_tokens": 104,
+        "max_func_len": 255,
         "max_nest": 5,
-        "comment_ratio": 0.0829,
-        "risk_score": 5282
+        "comment_ratio": 0.0655,
+        "risk_score": 5242
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/nav_viewd.cpp",
@@ -6602,17 +6602,6 @@
         "risk_score": 4683
       },
       {
-        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/control_guard.cpp",
-        "lang": "cpp",
-        "code_lines": 269,
-        "comment_lines": 75,
-        "branch_tokens": 41,
-        "max_func_len": 257,
-        "max_nest": 5,
-        "comment_ratio": 0.218,
-        "risk_score": 4652
-      },
-      {
         "rel_path": "UnderwaterRobotSystem/Underwater-robot-navigation/uwnav/drivers/dvl/hover_h1000/io.py",
         "lang": "python",
         "code_lines": 564,
@@ -6633,6 +6622,17 @@
         "max_nest": 4,
         "comment_ratio": 0.2371,
         "risk_score": 4478
+      },
+      {
+        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/control_guard.cpp",
+        "lang": "cpp",
+        "code_lines": 268,
+        "comment_lines": 60,
+        "branch_tokens": 40,
+        "max_func_len": 236,
+        "max_nest": 5,
+        "comment_ratio": 0.1829,
+        "risk_score": 4328
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent/intent_keyboard_source.cpp",
@@ -6701,6 +6701,17 @@
         "risk_score": 3863
       },
       {
+        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_server.cpp",
+        "lang": "cpp",
+        "code_lines": 174,
+        "comment_lines": 33,
+        "branch_tokens": 25,
+        "max_func_len": 210,
+        "max_nest": 3,
+        "comment_ratio": 0.1594,
+        "risk_score": 3644
+      },
+      {
         "rel_path": "UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_core/estimator/nav_health_monitor.cpp",
         "lang": "cpp",
         "code_lines": 148,
@@ -6756,17 +6767,6 @@
         "risk_score": 3248
       },
       {
-        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/platform/pwm_client.cpp",
-        "lang": "cpp",
-        "code_lines": 403,
-        "comment_lines": 52,
-        "branch_tokens": 67,
-        "max_func_len": 139,
-        "max_nest": 5,
-        "comment_ratio": 0.1143,
-        "risk_score": 3224
-      },
-      {
         "rel_path": "UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_core/drivers/dvl_driver.cpp",
         "lang": "cpp",
         "code_lines": 462,
@@ -6787,17 +6787,6 @@
         "max_nest": 4,
         "comment_ratio": 0.2085,
         "risk_score": 3120
-      },
-      {
-        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_server.cpp",
-        "lang": "cpp",
-        "code_lines": 150,
-        "comment_lines": 30,
-        "branch_tokens": 23,
-        "max_func_len": 177,
-        "max_nest": 3,
-        "comment_ratio": 0.1667,
-        "risk_score": 3109
       },
       {
         "rel_path": "UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_core/drivers/imu_driver_wit.cpp",
@@ -6864,6 +6853,17 @@
         "max_nest": 3,
         "comment_ratio": 0.1314,
         "risk_score": 2650
+      },
+      {
+        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/platform/pwm_client.cpp",
+        "lang": "cpp",
+        "code_lines": 383,
+        "comment_lines": 30,
+        "branch_tokens": 62,
+        "max_func_len": 106,
+        "max_nest": 4,
+        "comment_ratio": 0.0726,
+        "risk_score": 2629
       },
       {
         "rel_path": "tools/project_size_report.py",
@@ -6943,6 +6943,17 @@
         "risk_score": 2426
       },
       {
+        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_client.cpp",
+        "lang": "cpp",
+        "code_lines": 309,
+        "comment_lines": 59,
+        "branch_tokens": 25,
+        "max_func_len": 117,
+        "max_nest": 3,
+        "comment_ratio": 0.1603,
+        "risk_score": 2384
+      },
+      {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/keys/key_event_subscriber_shm.cpp",
         "lang": "cpp",
         "code_lines": 321,
@@ -6985,17 +6996,6 @@
         "max_nest": 3,
         "comment_ratio": 0.0989,
         "risk_score": 2178
-      },
-      {
-        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_client.cpp",
-        "lang": "cpp",
-        "code_lines": 301,
-        "comment_lines": 51,
-        "branch_tokens": 30,
-        "max_func_len": 101,
-        "max_nest": 3,
-        "comment_ratio": 0.1449,
-        "risk_score": 2176
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent_subscriber_shm.cpp",
@@ -7133,12 +7133,12 @@
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/intent_publisher_shm.cpp",
         "lang": "cpp",
         "code_lines": 198,
-        "comment_lines": 27,
-        "branch_tokens": 26,
+        "comment_lines": 47,
+        "branch_tokens": 27,
         "max_func_len": 90,
         "max_nest": 2,
-        "comment_ratio": 0.12,
-        "risk_score": 1836
+        "comment_ratio": 0.1918,
+        "risk_score": 1844
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/keys/keyboard_mapper.cpp",
@@ -7218,6 +7218,17 @@
         "risk_score": 1605
       },
       {
+        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/io/input/intent_subscriber_shm.cpp",
+        "lang": "cpp",
+        "code_lines": 192,
+        "comment_lines": 50,
+        "branch_tokens": 57,
+        "max_func_len": 52,
+        "max_nest": 4,
+        "comment_ratio": 0.2066,
+        "risk_score": 1588
+      },
+      {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/io/nav/nav_view_subscriber_shm.cpp",
         "lang": "cpp",
         "code_lines": 238,
@@ -7270,17 +7281,6 @@
         "max_func_len": 52,
         "max_nest": 6,
         "comment_ratio": 0.1601,
-        "risk_score": 1472
-      },
-      {
-        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/io/input/intent_subscriber_shm.cpp",
-        "lang": "cpp",
-        "code_lines": 192,
-        "comment_lines": 28,
-        "branch_tokens": 55,
-        "max_func_len": 48,
-        "max_nest": 3,
-        "comment_ratio": 0.1273,
         "risk_score": 1472
       },
       {
@@ -7581,6 +7581,17 @@
         "risk_score": 982
       },
       {
+        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/io/log/pwm_logger.cpp",
+        "lang": "cpp",
+        "code_lines": 142,
+        "comment_lines": 10,
+        "branch_tokens": 31,
+        "max_func_len": 30,
+        "max_nest": 3,
+        "comment_ratio": 0.0658,
+        "risk_score": 960
+      },
+      {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/include/control_core/teleop_mixer.hpp",
         "lang": "cpp",
         "code_lines": 66,
@@ -7645,17 +7656,6 @@
         "max_nest": 2,
         "comment_ratio": 0.3596,
         "risk_score": 828
-      },
-      {
-        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/tests/test_codec.cpp",
-        "lang": "cpp",
-        "code_lines": 130,
-        "comment_lines": 2,
-        "branch_tokens": 7,
-        "max_func_len": 40,
-        "max_nest": 1,
-        "comment_ratio": 0.0152,
-        "risk_score": 826
       }
     ],
     "long_functions": [
@@ -7687,16 +7687,8 @@
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp",
         "func": "GcsSession::handle_parsed_",
         "start": 97,
-        "end": 353,
-        "len": 257,
-        "nest": 5
-      },
-      {
-        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/control_guard.cpp",
-        "func": "ControlGuard::step",
-        "start": 161,
-        "end": 417,
-        "len": 257,
+        "end": 351,
+        "len": 255,
         "nest": 5
       },
       {
@@ -7714,6 +7706,14 @@
         "end": 444,
         "len": 238,
         "nest": 7
+      },
+      {
+        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/control_guard.cpp",
+        "func": "ControlGuard::step",
+        "start": 161,
+        "end": 396,
+        "len": 236,
+        "nest": 5
       },
       {
         "rel_path": "tools/quality/audit.py",
@@ -7756,11 +7756,19 @@
         "nest": 4
       },
       {
+        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_server.cpp",
+        "func": "main",
+        "start": 46,
+        "end": 255,
+        "len": 210,
+        "nest": 3
+      },
+      {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp",
         "func": "switch",
         "start": 147,
-        "end": 352,
-        "len": 206,
+        "end": 347,
+        "len": 201,
         "nest": 4
       },
       {
@@ -7804,14 +7812,6 @@
         "nest": 3
       },
       {
-        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/apps/gcs_server.cpp",
-        "func": "main",
-        "start": 46,
-        "end": 222,
-        "len": 177,
-        "nest": 3
-      },
-      {
         "rel_path": "UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/src/nav_core/app/nav_daemon.cpp",
         "func": "run_main_loop",
         "start": 269,
@@ -7841,14 +7841,6 @@
         "start": 21,
         "end": 166,
         "len": 146,
-        "nest": 5
-      },
-      {
-        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/platform/pwm_client.cpp",
-        "func": "PwmClient::setTargets",
-        "start": 279,
-        "end": 417,
-        "len": 139,
         "nest": 5
       },
       {
@@ -8822,11 +8814,11 @@
   },
   "risk": {
     "totals": {
-      "todo": 76,
+      "todo": 75,
       "danger_c_funcs": 58,
       "danger_cpp_patterns": 98,
       "danger_py_patterns": 88,
-      "control_keywords": 2273
+      "control_keywords": 2266
     },
     "per_file": [
       {
@@ -9876,7 +9868,7 @@
         "danger_c_funcs": 0,
         "danger_cpp_patterns": 0,
         "danger_py_patterns": 0,
-        "control_keywords": 4,
+        "control_keywords": 6,
         "risk_hits_score": 1
       },
       {
@@ -9976,7 +9968,7 @@
         "danger_c_funcs": 1,
         "danger_cpp_patterns": 0,
         "danger_py_patterns": 0,
-        "control_keywords": 7,
+        "control_keywords": 9,
         "risk_hits_score": 9
       },
       {
@@ -10046,7 +10038,7 @@
         "danger_c_funcs": 0,
         "danger_cpp_patterns": 0,
         "danger_py_patterns": 0,
-        "control_keywords": 50,
+        "control_keywords": 53,
         "risk_hits_score": 1
       },
       {
@@ -10122,12 +10114,12 @@
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp",
         "lang": "cpp",
-        "todo": 1,
+        "todo": 0,
         "danger_c_funcs": 7,
         "danger_cpp_patterns": 0,
         "danger_py_patterns": 0,
-        "control_keywords": 40,
-        "risk_hits_score": 62
+        "control_keywords": 36,
+        "risk_hits_score": 57
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/IPC/intent_subscriber_shm.cpp",
@@ -10476,7 +10468,7 @@
         "danger_c_funcs": 0,
         "danger_cpp_patterns": 0,
         "danger_py_patterns": 0,
-        "control_keywords": 44,
+        "control_keywords": 41,
         "risk_hits_score": 1
       },
       {
@@ -10516,7 +10508,7 @@
         "danger_c_funcs": 0,
         "danger_cpp_patterns": 0,
         "danger_py_patterns": 0,
-        "control_keywords": 100,
+        "control_keywords": 93,
         "risk_hits_score": 1
       },
       {
@@ -11592,16 +11584,6 @@
         "risk_hits_score": 67
       },
       {
-        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp",
-        "lang": "cpp",
-        "todo": 1,
-        "danger_c_funcs": 7,
-        "danger_cpp_patterns": 0,
-        "danger_py_patterns": 0,
-        "control_keywords": 40,
-        "risk_hits_score": 62
-      },
-      {
         "rel_path": "tools/quality/risk_scan.py",
         "lang": "python",
         "todo": 12,
@@ -11620,6 +11602,16 @@
         "danger_py_patterns": 0,
         "control_keywords": 0,
         "risk_hits_score": 60
+      },
+      {
+        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp",
+        "lang": "cpp",
+        "todo": 0,
+        "danger_c_funcs": 7,
+        "danger_cpp_patterns": 0,
+        "danger_py_patterns": 0,
+        "control_keywords": 36,
+        "risk_hits_score": 57
       },
       {
         "rel_path": "UnderwaterRobotSystem/Underwater-robot-navigation/apps/acquire/DVL_logger.py",
@@ -12238,7 +12230,7 @@
         "danger_c_funcs": 1,
         "danger_cpp_patterns": 0,
         "danger_py_patterns": 0,
-        "control_keywords": 7,
+        "control_keywords": 9,
         "risk_hits_score": 9
       },
       {
@@ -12692,16 +12684,6 @@
         "danger_py_patterns": 0,
         "control_keywords": 28,
         "risk_hits_score": 6
-      },
-      {
-        "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/gateway/src/session/gcs_session.cpp",
-        "lang": "cpp",
-        "todo": 1,
-        "danger_c_funcs": 7,
-        "danger_cpp_patterns": 0,
-        "danger_py_patterns": 0,
-        "control_keywords": 40,
-        "risk_hits_score": 62
       },
       {
         "rel_path": "UnderwaterRobotSystem/OrangePi_STM32_for_ROV/pwm_control_program/src/control_core/loop/control_loop_helpers.cpp",
@@ -13542,6 +13524,16 @@
         "danger_py_patterns": 0,
         "control_keywords": 0,
         "risk_hits_score": 0
+      },
+      {
+        "rel_path": "UnderwaterRobotSystem/UnderwaterRobotSystem/shared/shm/control_intent_shm.hpp",
+        "lang": "cpp",
+        "todo": 0,
+        "danger_c_funcs": 0,
+        "danger_cpp_patterns": 0,
+        "danger_py_patterns": 0,
+        "control_keywords": 4,
+        "risk_hits_score": 1
       }
     ]
   },
