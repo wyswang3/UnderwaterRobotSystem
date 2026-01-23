@@ -1,0 +1,5 @@
+[console_scripts]
+offnav-proc = offnav.cli_proc:main
+offnav-raw = offnav.cli_raw:main
+offnav-traj = offnav.cli_traj:main
+offnav-traj-compare = offnav.tools.traj_compare_cli:main

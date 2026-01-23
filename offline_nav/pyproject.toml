@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "offnav"
+version = "0.2.0"
+description = "Offline IMU+DVL processing and smoothing-based navigation toolkit for underwater experiments"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+  "numpy>=1.21",
+  "pandas>=1.5",
+  "matplotlib>=3.6",
+  "PyYAML>=6.0",
+]
+
+# 可选：如果你要用 GTSAM 后端（推荐），再额外安装 gtsam
+# dependencies = [
+#   "numpy>=1.21",
+#   "pandas>=1.5",
+#   "matplotlib>=3.6",
+#   "PyYAML>=6.0",
+#   "gtsam>=4.2",
+# ]
+
+[project.scripts]
+# CLI-1：原始数据浏览与原始绘图
+offnav-raw = "offnav.cli_raw:main"
+
+# CLI-2：IMU+DVL 预处理（滤波），导出干净 CSV + 诊断图
+offnav-proc = "offnav.cli_proc:main"
+
+# CLI-3：三条轨迹管线（deadreckon / ESKF / graph）
+offnav-traj = "offnav.cli_traj:main"
+
+# 工具脚本：三条轨迹合并在一张图
+offnav-traj-compare = "offnav.tools.traj_compare_cli:main"
+
+# 可选：保留一个别名 offnav，指向“原始 CLI”
+#offnav = "offnav.cli_raw:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

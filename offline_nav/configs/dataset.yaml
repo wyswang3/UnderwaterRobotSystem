@@ -1,0 +1,25 @@
+# offline_nav/configs/dataset.yaml
+
+data_root: ../data   # 关键是这行，从 src 视角看是 ../data
+
+runs:
+  - id: "2026-01-10_pooltest01"        # run_id
+    date: "2026-01-10"                 # 日期随你
+    path: "2026-01-10_pooltest01"      # ← 必须和 data/ 下的目录名一致
+    imu_glob: "imu/min_imu_tb_20260110_192246.csv"
+    dvl_glob: "dvl/dvl_nav_state_tb_20260110_192211.csv"
+    note: "第一次水池实验"
+
+  - id: "2026-01-10_pooltest02"
+    date: "2026-01-10"
+    path: "2026-01-10_pooltest02"
+    imu_glob: "imu/min_imu_tb_20260110_193348.csv"
+    dvl_glob: "dvl/dvl_nav_state_tb_20260110_193538.csv"
+    note: "第二次水池实验"
+  
+  - id: "2026-01-10_pooltest03"
+    date: "2026-01-10"
+    path: "2026-01-10_pooltest03"
+    imu_glob: "imu/min_imu_tb_20260116_161919.csv"
+    dvl_glob: "dvl/dvl_nav_state_tb_20260110_192211.csv"
+    note: "第三次水池实验"

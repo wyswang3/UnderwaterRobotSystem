@@ -1,0 +1,16 @@
+# offnav — Offline IMU+DVL Trajectory Estimation (Batch Smoothing)
+
+本小项目位于实验数据目录下，用于离线融合 IMU(100Hz) + DVL(10Hz) 估计水下轨迹，
+输出评审用轨迹图、速度拟合与残差统计。
+
+## Data Layout (example)
+
+exp_root:
+- dvl/dvl_speed_min_tb_*.csv
+- imu/min_imu_tb_*.csv
+
+## Install
+
+```bash
+cd "/home/wys/水下机器人实验数据/2026-01-06/offline_nav"
+pip install -e .

@@ -1,0 +1,29 @@
+[IMU] Filtered IMU CSV saved to: ../out/proc/2026-01-10_pooltest02/2026-01-10_pooltest02_imu_filtered.csv
+[IMU] Filtered IMU figure saved to: ../out/proc/2026-01-10_pooltest02/2026-01-10_pooltest02_imu_filtered_9axis.png
+[IMU][DIAG] fs_hz=97.907  sensor_to_body_map=rfu_to_frd  mount_rpy_deg=0.0,0.0,0.0
+[IMU][DT] dt_s: median=0.010214  p95=0.010531  min=0.002138  max=0.033103  bad_ratio=0.104%
+[IMU][BW] acc_raw_mean/std/p95|x|=(+0.8152,-0.3311,-9.7429) / (+0.0101,+0.0185,+0.0070) / (+0.8313,+0.3619,+9.7507)
+[IMU][BW] g_body_mean/std/p95|x|=(+0.8126,-0.3408,-9.7402) / (+0.0098,+0.0139,+0.0008) / (+0.8302,+0.3659,+9.7416)
+[IMU][BW] residual(raw-g)_mean/std/p95|x|=(+0.0026,+0.0097,-0.0027) / (+0.0103,+0.0157,+0.0071) / (+0.0207,+0.0364,+0.0118)
+[IMU][BW] acc_lin_mean/std/p95|x|=(-0.0000,-0.0000,+0.0000) / (+0.0170,+0.0288,+0.0069) / (+0.0338,+0.0583,+0.0127)  ||acc_lin_mean||=0.0000 m/s^2
+[IMU][BW] gyro_in_mean/std/p95|x|=(+0.000016,-0.000016,+0.000002) / (+0.005371,+0.003368,+0.000535) / (+0.010599,+0.007259,+0.000989)
+[IMU][BW] gyro_out_mean/std/p95|x|=(+0.000109,-0.000095,+0.000000) / (+0.005346,+0.003316,+0.000000) / (+0.010599,+0.007259,+0.000000)
+[IMU][AUDIT] (gyro_in - gyro_out)_mean/std/p95|x|=(-0.000093,+0.000078,+0.000002) / (+0.000497,+0.000572,+0.000535) / (+0.001254,+0.001453,+0.000989)
+[IMU][BW] gyro_out_zero_ratio(x,y,z)=((+0.152,+0.164,+0.102))
+[IMU][INFO] Use Gyro*_in_rad_s for ESKF; use Gyro*_rad_s / Gyro*_out_rad_s for plots.
+[DVL][2026-01-10_pooltest02] DVL BI CSV saved to: ../out/proc/2026-01-10_pooltest02/2026-01-10_pooltest02_dvl_BI.csv (n=24139)
+[DVL][2026-01-10_pooltest02] DVL BE CSV saved to: ../out/proc/2026-01-10_pooltest02/2026-01-10_pooltest02_dvl_BE.csv (n=24011)
+[DVL][2026-01-10_pooltest02] Filtered velocity plot saved to: ../out/proc/2026-01-10_pooltest02/plots/2026-01-10_pooltest02_dvl_filtered_velocity_BI_BE.png
+[DVL-DIAG][2026-01-10_pooltest02] ===== DVL Events Diagnostics =====
+[DVL-DIAG][2026-01-10_pooltest02] cfg: time_col=EstS, keep_first_s=20.0, speed_min/max=(0.000,2.000), dv_axis_max=0.200, dv_xy_max=0.250, be_vu_abs_max=0.300, lowpass_window_s=0.50
+[DVL-DIAG][2026-01-10_pooltest02] BI:
+  t=[1139.344, 3423.915]  duration=2284.57s  N=24139  fs≈10.07 Hz
+  Speed(m_s): min=0.0000  mean=0.1635  std=0.1495  p95=0.4379  max=0.5188
+  cfg.speed_max_m_s=2.000 (p95/cfg≈0.22)
+  Body components (mean/std): Vx=0.1332/0.1648, Vy=0.0264/0.0588, Vz=-0.0002/0.0030
+[DVL-DIAG][2026-01-10_pooltest02] BE:
+  t=[1139.347, 3423.921]  duration=2284.57s  N=24011  fs≈10.07 Hz
+  Speed(m_s): min=0.0000  mean=0.1595  std=0.1443  p95=0.4137  max=0.5036
+  cfg.speed_max_m_s=2.000 (p95/cfg≈0.21)
+  ENU components (mean/std): Ve=0.0184/0.1749, Vn=0.0742/0.0991, Vu=0.0010/0.0037
+[DVL-DIAG][2026-01-10_pooltest02] ====================================

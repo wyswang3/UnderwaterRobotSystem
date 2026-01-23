@@ -1,0 +1,118 @@
+# =============================
+# Offline Navigation Config
+# =============================
+experiment:
+  exp_root: "/home/wys/水下机器人实验数据/2026-01-06/2026-01-06"
+  dvl_glob: "dvl/dvl_speed_min_tb_*.csv"
+  imu_glob: "imu/min_imu_tb_*.csv"
+  out_dir: "/home/wys/水下机器人实验数据/2026-01-06/offline_nav/outputs"
+  enable_xy_gif: false              # 是否生成 GIF
+  graph_compare_variants: false    # 是否在 graph 内部跑多种滤波算法对比
+  compare_modes:
+    enabled: false
+    modes: ["baseline", "segment", "graph"]  # 要对比的三种解算/滤波模式
+    
+timebase:
+  # 统一用 MonoNS 作为主时间轴
+  time_col_ns: "MonoNS"
+  allow_dt_gap_s: 0.05     # IMU dt 超过此值认为异常（先跳过）
+  min_dt_s: 1.0e-4         # 太小的 dt 也认为异常
+
+units:
+  # IMU 输入单位确认：加速度 g，角速度 deg/s
+  imu_acc_in_g: true
+  imu_gyro_in_deg_s: true
+  g_to_mps2: 9.80665
+
+  # DVL 已经被你转换成 m/s；这里做校验阈值
+  dvl_speed_unit: "m/s"
+  dvl_abs_speed_sanity_max: 5.0  # 超过视为异常（可调）
+
+
+static_window:
+  mode: "simple"              # auto / manual / simple
+  manual_t0_s: 0.0           # mode=manual 时生效
+  manual_t1_s: 0.0
+
+  search_after_dvl_start_s: 0.5   # auto/simple 共用：从 DVL 起点往后避开初始收敛期
+  window_len_s: 1.0               # 窗长度（秒）
+
+  auto_search_span_s: 5.0         # auto: 在 [dvl_start+after, +after+span] 内搜索
+  auto_step_s: 0.25               # auto: 滑窗步长
+  min_imu_samples: 50
+  min_dvl_samples: 1
+  w_gyro: 1.0
+  w_dvl: 1.0
+    # 静止阈值（你可以根据 stats 输出微调）
+  max_gyro_static_rad_s: 0.02   # 比你静止段 gyro std 略大一点即可
+  max_dvl_static_mps: 0.02
+
+noise:
+  # IMU 噪声参数（占位；后续用静止段统计覆盖）
+  imu:
+    sigma_acc_mps2_sqrtHz: 0.05
+    sigma_gyro_rad_s_sqrtHz: 0.002
+    sigma_ba_mps2_sqrtHz: 0.001
+    sigma_bg_rad_s_sqrtHz: 0.0002
+
+  # DVL 速度观测噪声（先给保守值；后续用静止段统计覆盖）
+  dvl:
+    sigma_be_mps: 0.03
+    sigma_bi_mps: 0.05
+
+robust:
+  # 观测鲁棒核（先用于 DVL 因子）
+  enable: false
+  kind: "huber"     # huber / cauchy
+  delta: 2.0        # 越大越接近 L2
+
+solver:
+  backend: "gtsam"  # 先按 gtsam 设计；如果暂时不用，先做 stats
+  max_iters: 50
+
+output:
+  out_dir: "/home/wys/水下机器人实验数据/2026-01-06/offline_nav/outputs"
+  save_report_md: true
+  save_plots: true
+
+baseline:
+  prefer_be: true
+  use_bi_if_no_be: true
+  R_bd_deg: [0.0, 0.0, 0.0]      # DVL->Body 外参，第一版设0
+  integrate: "zoh"               # zoh / trapezoid
+  max_abs_speed_mps: 5.0
+  
+
+  median_window: 3
+  speed_jump_thresh_mps: 0.20
+  smooth_window: 3
+  dvl_bias_from_static: false
+  robust_speed_filter:  false   # 先关掉滤波，看单纯“bias 校正”的效果
+
+
+graph:
+  dvl_merge_tol_s: 0.02
+  eps_speed_zero_mps: 0.01
+  max_zero_gap_s: 15.0
+  zupt_eps_speed_mps: 0.02   # 对应 cfg.zupt_eps_speed
+  zupt_min_dt_s: 3.0
+
+  w_vel_obs: 1.0
+  w_kinematic_disp: 1.0
+  w_smooth_vel: 0.1
+  w_zupt_vel: 20.0
+  w_zupt_disp: 20.0
+  w_prior_pose0: 100.0
+  w_prior_vel0: 100.0
+  diag_damping: 1e-6
+
+frames:
+  world_frame: "ENU"
+  gravity_mps2: [0.0, 0.0, -9.80665]
+
+  global_frame:
+    yaw_deg: 0.0
+    origin_nav_enu_m: [0.0, 0.0]
+
+
+
