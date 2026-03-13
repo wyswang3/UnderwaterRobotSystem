@@ -49,6 +49,20 @@
 - `parse_nav_timing.py` 半实机验证
   - 覆盖 duplicate/out-of-order/stale/device-state 统计
   - 覆盖 `sensor -> recv -> consume -> publish` 延迟分布输出
+- `nav_core_test_serial_reconnect_integration`
+  - 覆盖 IMU PTY 半实物错绑 -> 正确设备 -> 断开 -> 新节点恢复
+  - 覆盖 DVL PTY 半实物真实 PD6 输入 -> 断开 -> 重连
+  - 覆盖驱动 EOF 断连识别，不再把 `read()==0` 当作普通空读
+- `pwmctrl_test_nav_reconnect_pipeline`
+  - 覆盖 `NavState -> nav_viewd policy -> NavStateView -> ControlGuard -> Telemetry`
+  - 覆盖 reconnecting fault 传播
+  - 覆盖 daemon stale 诊断帧清空旧运动学 payload
+- `pwmctrl_test_telemetry_timeline_logger`
+  - 覆盖 telemetry timeline/event CSV 落盘
+  - 覆盖 `last_event` / `last_command_result` 去重写出
+- `merge_robot_timeline.py` 最小联合时间线验证
+  - 覆盖 `nav_timing.bin + nav.bin + nav_state.bin + control CSV + telemetry CSV`
+  - 覆盖统一按 monotonic 时间排序的离线复盘
 
 说明：
 
@@ -122,6 +136,11 @@
 - `uwnav_navd` 在主循环中监督 `ONLINE -> RECONNECTING`
 - 失联后按 backoff 重探测，不再只盯旧路径
 - IMU 重新上线时重置 aligner/ESKF，避免旧状态跨设备复用
+
+当前 P1 已通过半实物测试验证：
+
+- 驱动 EOF/断开会让主线程真实看到 port offline
+- 同一逻辑可以在新 PTY 节点上恢复，不依赖固定 `/dev/ttyUSB0`
 
 ### 2.2 传感器缺失/时间戳过期
 
@@ -233,7 +252,10 @@
 - `nav_timing.bin` 记录采样/接收/消费/发布四类关键时间
 - 设备状态切换与 rejected 样本也进入同一日志
 - `parse_nav_timing.py` 可直接统计 duplicate/out-of-order/stale/device transitions
-- 完整回放工具仍属于 P1
+- `nav_state.bin` 记录导航发布态
+- 控制侧新增 control CSV 与 telemetry timeline/event CSV
+- `merge_robot_timeline.py` 可把 nav/control/telemetry 串成一条最小联合时间线
+- 完整回放注入框架仍属于后续 P1/P2
 
 ## 5. 回放测试建议
 

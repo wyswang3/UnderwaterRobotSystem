@@ -132,6 +132,37 @@ imu:
 - verify `nav_timing.bin` contains `*_device_state` records for the transition
 - verify control/GCS show the resulting nav invalid/degraded state rather than stale old data
 
+## P1 Integrated Validation
+
+This round adds two concrete validation layers:
+
+1. PTY-backed driver integration
+   - `nav_core_test_serial_reconnect_integration`
+   - IMU covers:
+     - wrong device first
+     - correct device selected later
+     - runtime disconnect via PTY EOF
+     - node/path change on reconnect
+   - DVL covers:
+     - real PD6 line ingress over PTY
+     - runtime disconnect via PTY EOF
+     - reconnect on a new PTY path
+
+2. Control-side pipeline validation
+   - `pwmctrl_test_nav_reconnect_pipeline`
+   - verifies:
+     - device reconnect fault reaches `NavStateView`
+     - `nav_viewd` stale policy publishes explicit diagnostic invalid
+     - `ControlGuard` rejects Auto when reconnect/stale nav is present
+     - telemetry stays aligned with the control decision
+
+## Runtime Disconnect Semantics
+
+Driver loops now treat serial `read()==0` as a real disconnect instead of a benign no-data case.
+
+This matters because PTY close and many USB re-enumeration paths surface as EOF first.
+Without this rule the binder would keep seeing an old fd as open and the system would lag before entering `RECONNECTING`.
+
 ## Remaining Limits
 
 - hardware-origin timestamps are still not available; device binding is identity-safe,

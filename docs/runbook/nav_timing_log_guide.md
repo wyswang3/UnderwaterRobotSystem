@@ -56,6 +56,18 @@ JSON output:
 python3 nav_core/tools/parse_nav_timing.py /path/to/nav_timing.bin --json
 ```
 
+Unified minimal timeline:
+
+```bash
+python3 nav_core/tools/merge_robot_timeline.py \
+  --nav-timing /path/to/nav_timing.bin \
+  --nav-bin /path/to/nav.bin \
+  --nav-state /path/to/nav_state.bin \
+  --control-log /path/to/control_loop_xxx.csv \
+  --telemetry-timeline /path/to/telemetry_timeline_xxx.csv \
+  --telemetry-events /path/to/telemetry_events_xxx.csv
+```
+
 ## What To Look For
 
 ### Sample ordering
@@ -94,6 +106,24 @@ Common sequences:
 - `ONLINE -> RECONNECTING -> CONNECTING -> ONLINE`
 - `PROBING -> MISMATCH`
 
+### Cross-stage timeline alignment
+
+`merge_robot_timeline.py` is the current P1 minimum closure tool.
+It joins:
+
+- `nav_timing.bin`
+- `nav.bin`
+- `nav_state.bin`
+- control CSV
+- telemetry timeline CSV
+- telemetry event CSV
+
+Use it to answer:
+
+- did device state change before nav went invalid?
+- did stale trigger in nav_viewd before control rejected Auto?
+- did telemetry/UI-facing state change after control entered failsafe?
+
 ## Half-Real Validation Procedure
 
 Current P0 validation method:
@@ -114,6 +144,19 @@ This was validated in the local environment with a synthetic trace containing:
 - IMU `CONNECTING -> ONLINE`
 - DVL `RECONNECTING`
 - degraded and stale `nav_published` records
+- control CSV row showing Auto rejected on stale nav
+- telemetry timeline and event rows showing the same transition
+
+Observed merged timeline summary in the local fixture:
+
+- sources: `nav_timing`, `nav_bin`, `nav_state`, `control`, `telemetry_timeline`, `telemetry_events`
+- ordered transitions showed:
+  - DVL sample arrival
+  - IMU consume / nav publish
+  - device reconnect event
+  - stale rejection
+  - control failsafe row
+  - telemetry event + command result rows
 
 ## Current Limits
 
@@ -121,3 +164,4 @@ This was validated in the local environment with a synthetic trace containing:
 - there is not yet a dedicated viewer for long timelines
 - `publish_mono_ns` is intentionally `0` for consumed/rejected sample records in P0;
   end-to-end replay closure belongs to P1
+- `nav.bin` currently only carries processed DVL samples, not full IMU raw payloads
