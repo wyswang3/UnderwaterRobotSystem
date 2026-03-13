@@ -11,6 +11,12 @@
 ## 本轮已落地
 
 - `shared::msg::NavState` 增加了 `valid/stale/degraded/nav_state/fault_code/sensor_mask/age_ms`
+- 导航样本时间模型已补齐：
+  - `sensor_time_ns`
+  - `recv_mono_ns`
+  - `consume_mono_ns`
+  - `mono_ns`
+  - `est_ns(legacy mirror)`
 - `NavRunState` 已收敛为：
   - `kUninitialized`
   - `kAligning`
@@ -33,6 +39,10 @@
   - IMU stale
   - ESKF 数值非有限
   以上场景均不再发布 `valid=1`
+- `nav_core` 主线程已改为：
+  - 只消费严格更新的新样本
+  - 拒绝重复样本和乱序样本
+  - freshness 一律按 `sensor_time_ns` 判断
 - `DVL` 缺失已改为 `kDegraded + valid=1 + degraded=1`，不再伪装成 `OK`
 - `nav_viewd` stale/no-data 时会发布显式 invalid 诊断帧，并清空控制面运动学 payload
 - `ControlGuard` 的 Auto 模式现在要求同时满足：
@@ -197,12 +207,38 @@
 - `age_ms`
   - 当前 hop 发布时，`stamp_ns` 相对 `mono_ns` 的总老化时间
 
-当前约定：
+当前 P0 约定：
 
-- nav 进程发布 `NavState` 时先计算一次 `age_ms`
-- gateway 发布 `NavStateView` 时重新按本 hop `mono_ns` 更新 `age_ms`
-- control 侧读取 `NavStateView` 时继续把本地 hop 延迟叠加到 `age_ms`
-- stale 判断最终以 `age_ms` 和 `stale` 位为准，不再三处各算各的
+- 传感器 freshness 判断只看 `sensor_time_ns`
+- `recv_mono_ns` 只表达“驱动线程拿到样本”的时刻
+- `consume_mono_ns` 只表达“主线程真正使用该样本”的时刻
+- 迟到样本即使刚刚被消费，只要 `publish_mono_ns - sensor_time_ns` 超预算，
+  仍必须判为 stale
+- `NavState.age_ms = publish_mono_ns - t_ns`
+- `NavStateView.age_ms = gateway_pub_mono_ns - stamp_ns`
+- control 侧在读取 SHM 后继续把本地 hop 延迟叠加到 `age_ms`
+
+这意味着 stale/freshness 不再允许按“最近有没有样本”各算各的。
+
+## 4.4 当前主线程使用规则
+
+- 驱动线程写入最新样本时，必须同时带上 `sensor_time_ns` 与 `recv_mono_ns`
+- 主线程只对严格更晚的样本填充 `consume_mono_ns`
+- IMU 旧样本禁止重复 propagate
+- DVL 旧样本禁止重复 update
+- `sensor_mask/status_flags` 只反映已消费且仍 fresh 的样本，不反映“驱动刚收到但主线程还没用”的样本
+
+## 4.5 当前最小时间追踪日志
+
+P0 新增 `nav_timing.bin`，至少记录：
+
+- 样本对应时间
+- 驱动接收时间
+- 主线程消费时间
+- 导航发布时间
+- 当前累计 age 与故障码
+
+它的目标不是替代 P1 的完整回放系统，而是先确保 stale、乱序和旧样本复用可以被追因。
 
 ## 5. 控制侧保护逻辑
 
@@ -233,6 +269,8 @@
 - 已完成：补 `valid/stale/fault_code/nav_state/sensor_mask` 语义
 - 已完成：未初始化或 IMU 缺失时禁止输出 `valid=1`
 - 已完成：控制侧 Auto 模式增加无效导航保护
+- 已完成：主线程只消费新样本并基于样本时间做 freshness/stale 判断
+- 已完成：补 `nav_timing.bin` 最小时间追踪日志
 - 未完成：IMU 设备身份识别和稳定路径
 
 ### P1

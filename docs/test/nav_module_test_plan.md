@@ -17,20 +17,28 @@
   - 覆盖 ALIGNING 不再输出 `valid=1`
   - 覆盖 IMU stale -> `INVALID`
   - 覆盖 DVL 缺失 -> `DEGRADED`
+- `nav_core_test_sample_timing`
+  - 覆盖延迟样本按 `sensor_time_ns` 触发 stale
+  - 覆盖重复/乱序样本拒绝消费
+  - 覆盖主线程消费后 `age_ms` 仍按样本时间计算
 - `gateway_test_nav_view_builder`
   - 覆盖 invalid NavState 不再向控制面暴露旧 payload
   - 覆盖 degraded NavState 的语义透传
+  - 覆盖 `NavState.t_ns/age_ms -> NavStateView.stamp_ns/age_ms` 语义透传
 - `pwmctrl_test_v1_closed_loop`
   - 覆盖 Guard 拒绝 `ALIGNING` Auto
   - 覆盖 Guard 允许 `DEGRADED` 但健康的 Auto
 - `pwmctrl_test_nav_view_shm_source`
   - 覆盖 SHM source 不再把 invalid/stale 折叠成 no-data
   - 覆盖控制侧本地 age 超预算后强制置 stale
+  - 覆盖 `NavState -> NavView -> Control` 的 `stamp_ns/mono_ns/age_ms` 一致性
+- `pwmctrl_test_pid_framework`
+  - 覆盖 Telemetry 继续携带控制侧看到的累计 `nav_age_ms`
 
 说明：
 
-- `pwmctrl_test_nav_view_shm_source` 在默认沙箱里因为 POSIX SHM 创建权限受限失败
-- 在非沙箱环境重跑后通过，因此该测试结果有效，但运行环境要求需在文档中注明
+- `pwmctrl_test_nav_view_shm_source` 依赖 POSIX SHM，可在受限沙箱里失败
+- 本轮在具备 SHM 权限的本地环境重跑通过，结果有效
 
 ## 1. 单元测试建议
 
@@ -57,6 +65,12 @@
 - DVL 缺失时进入 degraded，不是静默继续 OK
 - 时间戳倒退或 dt 超界时不输出有效导航状态
 - 非有限数值出现时进入 invalid
+
+本轮已补最小时间语义单测：
+
+- 延迟样本 stale 触发
+- 重复样本 / 乱序样本拒绝消费
+- `age_ms` 基于 sample stamp 而不是 consume time
 
 ### 1.3 NavView 构建与控制侧消费
 
@@ -125,8 +139,11 @@
 本轮已完成最小覆盖：
 
 - `NavState` 状态机单测
+- `NavState` 时间语义单测
 - `NavViewBuilder` 语义单测
 - `NavViewShmSource` stale/invalid SHM 行为单测
+- `NavState -> NavView -> Control` 时间语义一致性单测
+- `TelemetryFrameV2.system.nav_age_ms` 透传单测
 - `ControlGuard` Auto 保护单测
 
 ## 3. 控制保护测试建议
@@ -177,15 +194,22 @@
 
 检查：
 
+- 传感器 `sensor_time_ns / recv_mono_ns / consume_mono_ns`
 - `NavState.stamp_ns`
 - SHM header `mono_ns`
 - `NavStateView.stamp_ns`
 - 控制侧 `age_ms_local`
+- `TelemetryFrameV2.system.nav_age_ms`
 
 要求：
 
 - 各字段语义一致
 - 能用脚本回放出完整时间线
+
+本轮已建立最小基线：
+
+- `nav_timing.bin` 记录采样/接收/消费/发布四类关键时间
+- 完整回放工具仍属于 P1
 
 ## 5. 回放测试建议
 
