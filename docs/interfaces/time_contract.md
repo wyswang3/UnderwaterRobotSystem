@@ -67,14 +67,70 @@ This means a late-arriving sample can still be stale even if `recv_mono_ns` and
 
 Navigation now writes a timing trace file `nav_timing.bin` that records:
 
+- record kind
 - sample time
 - driver receive time
 - main-loop consume time
 - nav publish time
-- cumulative age and fault summary
+- cumulative age and fault/state summary
+- stale/rejected/out-of-order/device-state flags
 
 This is not the full replay/logging closure yet. It is the minimum P0 trace needed
 to explain delayed samples, stale propagation, and state publication timing.
+
+### `nav_timing.bin` packet fields
+
+`TimingTracePacketV1` is fixed-width 48 bytes and uses little-endian encoding.
+
+- `version`
+  - current value is `1`
+- `kind`
+  - `1 imu_consumed`
+  - `2 dvl_consumed`
+  - `3 nav_published`
+  - `4 imu_rejected`
+  - `5 dvl_rejected`
+  - `6 imu_device_state`
+  - `7 dvl_device_state`
+- `flags`
+  - `fresh`
+  - `accepted`
+  - `valid`
+  - `stale`
+  - `degraded`
+  - `rejected`
+  - `out_of_order`
+  - `device_online`
+  - `device_mismatch`
+  - `device_reconnecting`
+- `sensor_time_ns`
+  - semantic sample time when the record is tied to a sensor sample
+- `recv_mono_ns`
+  - driver receive/decode time
+- `consume_mono_ns`
+  - nav main-loop consume time
+- `publish_mono_ns`
+  - nav publish time or device-state transition time
+- `age_ms`
+  - accumulated age relative to `sensor_time_ns` / `stamp_ns`
+- `fault_code`
+  - nav fault code for state records
+  - device-state enum value for `*_device_state` records
+
+### P0 parser baseline
+
+`nav_core/tools/parse_nav_timing.py` is the minimum supported parser for P0.
+
+It must be able to answer:
+
+- whether samples are duplicated or out-of-order
+- whether stale rejection was driven by semantic sample age
+- how long each stage spent in:
+  - `sensor -> recv`
+  - `recv -> consume`
+  - `consume -> publish`
+- when IMU/DVL binding changed state
+- when nav output switched to degraded/stale diagnostics
 
 ## Telemetry and UI Rules
 
@@ -91,3 +147,5 @@ to explain delayed samples, stale propagation, and state publication timing.
 - hardware-origin timestamps for IMU/DVL are not available yet, so `sensor_time_ns`
   is still estimated from host receive time plus configured latency when needed
 - wall/epoch alignment is still out of scope for P0 and must not be mixed into stale logic
+- `publish_mono_ns` for `imu_consumed` / `dvl_consumed` records is currently `0`
+  because P0 only needs consume-stage latency there; end-to-end replay ordering is still P1 work

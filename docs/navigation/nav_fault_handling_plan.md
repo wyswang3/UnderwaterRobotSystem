@@ -27,7 +27,13 @@
   - `kEstimatorUninitialized`
   - `kAlignmentPending`
   - `kImuNoData`
+  - `kImuDeviceNotFound`
+  - `kImuDeviceMismatch`
+  - `kImuDisconnected`
   - `kImuStale`
+  - `kDvlDeviceNotFound`
+  - `kDvlDeviceMismatch`
+  - `kDvlDisconnected`
   - `kEstimatorNumericInvalid`
   - `kNavOutputStale`
   - `kNavViewStale`
@@ -43,6 +49,21 @@
   - 只消费严格更新的新样本
   - 拒绝重复样本和乱序样本
   - freshness 一律按 `sensor_time_ns` 判断
+- `nav_core` 已增加设备绑定/重连状态机：
+  - `DISCONNECTED`
+  - `PROBING`
+  - `CONNECTING`
+  - `ONLINE`
+  - `MISMATCH`
+  - `ERROR_BACKOFF`
+  - `RECONNECTING`
+- `NavState.status_flags` 已扩展设备侧状态：
+  - `NAV_FLAG_IMU_DEVICE_ONLINE`
+  - `NAV_FLAG_DVL_DEVICE_ONLINE`
+  - `NAV_FLAG_IMU_BIND_MISMATCH`
+  - `NAV_FLAG_DVL_BIND_MISMATCH`
+  - `NAV_FLAG_IMU_RECONNECTING`
+  - `NAV_FLAG_DVL_RECONNECTING`
 - `DVL` 缺失已改为 `kDegraded + valid=1 + degraded=1`，不再伪装成 `OK`
 - `nav_viewd` stale/no-data 时会发布显式 invalid 诊断帧，并清空控制面运动学 payload
 - `ControlGuard` 的 Auto 模式现在要求同时满足：
@@ -144,7 +165,8 @@
 
 必须检查：
 
-- 端口是否存在
+- 稳定路径是否存在（优先 `/dev/serial/by-id` 或明确 udev symlink）
+- 候选端口中是否能找到满足身份约束的目标设备
 - 是否成功打开
 - 是否持续收到字节流
 - 是否持续收到合法帧
@@ -158,6 +180,18 @@
 - `fault_code = IMU_*`
 - 禁止输出可被控制直接消费的导航有效状态
 
+当前 P0 已实现的主线程监督策略：
+
+- binder 先按稳定路径探测
+- 稳定路径不存在时扫描候选端口
+- 若存在串口设备但不满足 by-id/VID/PID/serial 约束，则进入 `MISMATCH`
+- 若驱动线程停止、串口关闭，或超过 `offline_timeout_ms` 未收到 IMU 帧，则进入 `RECONNECTING`
+- IMU 连接状态变化时：
+  - 重置 IMU 预处理器
+  - 重置 ESKF 到配置初值
+  - 清空最近已消费 IMU/DVL 时间缓存
+  - 导航重新进入对准/初始化流程
+
 ### 3.2 DVL
 
 必须区分：
@@ -166,6 +200,8 @@
 - 已接入但无底锁
 - 有底锁但速度被门控拒绝
 - 时间戳 stale
+- 绑定身份不匹配
+- 运行中断流 / 重连中
 
 这几类不能都折叠成“DVL 不好使”。
 
@@ -232,11 +268,18 @@
 
 P0 新增 `nav_timing.bin`，至少记录：
 
+- `kind`
+- `flags`
 - 样本对应时间
 - 驱动接收时间
 - 主线程消费时间
 - 导航发布时间
 - 当前累计 age 与故障码
+
+并且现在额外记录：
+
+- 设备绑定状态切换
+- 重复样本 / 乱序样本 / stale 样本被拒绝的事件
 
 它的目标不是替代 P1 的完整回放系统，而是先确保 stale、乱序和旧样本复用可以被追因。
 
@@ -271,7 +314,8 @@ P0 新增 `nav_timing.bin`，至少记录：
 - 已完成：控制侧 Auto 模式增加无效导航保护
 - 已完成：主线程只消费新样本并基于样本时间做 freshness/stale 判断
 - 已完成：补 `nav_timing.bin` 最小时间追踪日志
-- 未完成：IMU 设备身份识别和稳定路径
+- 已完成：IMU/DVL 设备身份绑定、断连监督与主线程重探测
+- 已完成：`nav_viewd` daemon stale/no-data 诊断帧策略单测
 
 ### P1
 

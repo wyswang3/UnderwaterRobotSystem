@@ -70,6 +70,12 @@ enum class NavFaultCode : std::uint16_t {
     kNavOutputStale        = 7,
     kNavViewStale          = 8,
     kNoData                = 9,
+    kImuDeviceNotFound     = 10,
+    kImuDeviceMismatch     = 11,
+    kImuDisconnected       = 12,
+    kDvlDeviceNotFound     = 13,
+    kDvlDeviceMismatch     = 14,
+    kDvlDisconnected       = 15,
 };
 
 /**
@@ -105,12 +111,12 @@ enum NavStatusFlags : std::uint16_t {
     NAV_FLAG_ESKF_OK     = 1u << 4,   ///< ESKF / 状态估计算法正常
     NAV_FLAG_ALIGN_DONE  = 1u << 5,   ///< 完成初始对准 / 零偏估计
 
-    NAV_FLAG_RESERVED6   = 1u << 6,
-    NAV_FLAG_RESERVED7   = 1u << 7,
-    NAV_FLAG_RESERVED8   = 1u << 8,
-    NAV_FLAG_RESERVED9   = 1u << 9,
-    NAV_FLAG_RESERVED10  = 1u << 10,
-    NAV_FLAG_RESERVED11  = 1u << 11,
+    NAV_FLAG_IMU_DEVICE_ONLINE   = 1u << 6,   ///< IMU 设备当前已绑定且驱动在线
+    NAV_FLAG_DVL_DEVICE_ONLINE   = 1u << 7,   ///< DVL 设备当前已绑定且驱动在线
+    NAV_FLAG_IMU_BIND_MISMATCH   = 1u << 8,   ///< 找到了设备，但身份不匹配
+    NAV_FLAG_DVL_BIND_MISMATCH   = 1u << 9,   ///< 找到了设备，但身份不匹配
+    NAV_FLAG_IMU_RECONNECTING    = 1u << 10,  ///< IMU 处于 probing/backoff/reconnect 中
+    NAV_FLAG_DVL_RECONNECTING    = 1u << 11,  ///< DVL 处于 probing/backoff/reconnect 中
     NAV_FLAG_RESERVED12  = 1u << 12,
     NAV_FLAG_RESERVED13  = 1u << 13,
     NAV_FLAG_RESERVED14  = 1u << 14,

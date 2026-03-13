@@ -15,18 +15,30 @@
 - `nav_core_test_nav_runtime_status`
   - 覆盖冷启动未初始化
   - 覆盖 ALIGNING 不再输出 `valid=1`
+  - 覆盖设备 mismatch/reconnecting 映射到 `fault_code/status_flags`
   - 覆盖 IMU stale -> `INVALID`
   - 覆盖 DVL 缺失 -> `DEGRADED`
 - `nav_core_test_sample_timing`
   - 覆盖延迟样本按 `sensor_time_ns` 触发 stale
   - 覆盖重复/乱序样本拒绝消费
   - 覆盖主线程消费后 `age_ms` 仍按样本时间计算
+- `nav_core_test_device_binding`
+  - 覆盖稳定路径优先
+  - 覆盖身份不匹配进入 `MISMATCH`
+  - 覆盖无身份约束的多设备歧义拒绝绑定
+  - 覆盖断连后的 backoff 与重新探测
 - `gateway_test_nav_view_builder`
   - 覆盖 invalid NavState 不再向控制面暴露旧 payload
   - 覆盖 degraded NavState 的语义透传
   - 覆盖 `NavState.t_ns/age_ms -> NavStateView.stamp_ns/age_ms` 语义透传
+- `gateway_test_nav_view_policy`
+  - 覆盖 fresh 输入正常发布
+  - 覆盖 stale/no-data 转显式 invalid 诊断帧
+  - 覆盖 invalid/degraded 上游输入在 daemon 级策略中的传播
+  - 覆盖 degrade throttle slot 下的“本周期不发布”
 - `pwmctrl_test_v1_closed_loop`
   - 覆盖 Guard 拒绝 `ALIGNING` Auto
+  - 覆盖 Guard 拒绝 `stale/invalid` Auto
   - 覆盖 Guard 允许 `DEGRADED` 但健康的 Auto
 - `pwmctrl_test_nav_view_shm_source`
   - 覆盖 SHM source 不再把 invalid/stale 折叠成 no-data
@@ -34,6 +46,9 @@
   - 覆盖 `NavState -> NavView -> Control` 的 `stamp_ns/mono_ns/age_ms` 一致性
 - `pwmctrl_test_pid_framework`
   - 覆盖 Telemetry 继续携带控制侧看到的累计 `nav_age_ms`
+- `parse_nav_timing.py` 半实机验证
+  - 覆盖 duplicate/out-of-order/stale/device-state 统计
+  - 覆盖 `sensor -> recv -> consume -> publish` 延迟分布输出
 
 说明：
 
@@ -50,6 +65,7 @@
 - 主路径不存在时，能否切换到候选路径
 - 设备存在但属性不匹配时拒绝绑定
 - 打开成功但长时间无有效帧时返回明确错误
+- 多串口同时存在但没有身份约束时拒绝歧义绑定
 
 建议实现方式：
 
@@ -100,6 +116,12 @@
 - 状态切到 `degraded` 或 `invalid`
 - 若启用重发现，应自动绑定新端口
 - 恢复后给出恢复事件日志
+
+当前 P0 已通过主线程状态机实现：
+
+- `uwnav_navd` 在主循环中监督 `ONLINE -> RECONNECTING`
+- 失联后按 backoff 重探测，不再只盯旧路径
+- IMU 重新上线时重置 aligner/ESKF，避免旧状态跨设备复用
 
 ### 2.2 传感器缺失/时间戳过期
 
@@ -209,6 +231,8 @@
 本轮已建立最小基线：
 
 - `nav_timing.bin` 记录采样/接收/消费/发布四类关键时间
+- 设备状态切换与 rejected 样本也进入同一日志
+- `parse_nav_timing.py` 可直接统计 duplicate/out-of-order/stale/device transitions
 - 完整回放工具仍属于 P1
 
 ## 5. 回放测试建议
