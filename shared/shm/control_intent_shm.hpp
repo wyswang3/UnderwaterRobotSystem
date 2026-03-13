@@ -38,10 +38,13 @@ struct IntentShmHeader final {
 };
 
 struct IntentShmLayout final {
-    IntentShmHeader hdr;
+    IntentShmHeader            hdr;
     shared::msg::ControlIntent intent;
 };
 
+// 确保类型适合放进 SHM
+static_assert(std::is_trivially_copyable_v<shared::msg::ControlIntent>,
+              "ControlIntent must be POD-like");
 static_assert(std::is_standard_layout_v<IntentShmLayout>,
               "IntentShmLayout must be standard layout.");
 static_assert(std::is_trivially_copyable_v<IntentShmLayout>,

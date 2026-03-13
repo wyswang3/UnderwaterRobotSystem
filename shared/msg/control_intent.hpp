@@ -20,10 +20,11 @@ enum IntentFlags : std::uint32_t {
 
 
 enum class ControlMode : std::uint8_t {
-    kNone   = 0,
-    kManual = 1,
-    kAuto   = 2,
-    kHold   = 3,
+    kNone     = 0,
+    kManual   = 1,
+    kAuto     = 2,
+    kHold     = 3,
+    kFailsafe = 4,
 };
 
 enum class IntentSource : std::uint8_t {
