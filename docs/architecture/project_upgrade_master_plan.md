@@ -7,8 +7,8 @@ from a functional prototype into a trustworthy multi-repo system.
 
 Current audited code baseline:
 
-- `Underwater-robot-navigation`: `1402cd7` on `feature/nav-p0-contract-baseline`
-- `OrangePi_STM32_for_ROV`: `677266c` on `feature/control-p0-status-telemetry-baseline`
+- `Underwater-robot-navigation`: `46d693e` on `feature/nav-p0-contract-baseline`
+- `OrangePi_STM32_for_ROV`: `dd2143f` on `feature/control-p0-status-telemetry-baseline`
 - `UnderWaterRobotGCS`: `d8d8687` on `feature/gcs-p0-status-telemetry-alignment`
 
 ## Phase Plan
@@ -33,9 +33,22 @@ Delivered in this subphase:
 
 Still open in P0:
 
-- device identity binding and reconnect state machines for IMU/DVL
-- formal nav runtime state machine enforcement in code path beyond publish semantics
-- explicit cross-hop `stamp_ns/mono_ns/age_ms` tests in control and gateway
+- root `shared/` is still outside standalone Git management
+- real-hardware USB re-enumeration automation is still missing
+- telemetry/UI does not yet expose device-binding detail fields directly
+
+## Shared Contract Handling
+
+For the current workspace layout:
+
+- runtime code consumes the root-level `shared/`
+- this repo now keeps a mirrored `shared/` tree under Git on
+  `feature/docs-p0-baseline-alignment`
+- docs and compatibility tracking must update the mirrored `shared/`
+  in the same change set as any contract refresh
+
+This is an interim arrangement. P1 should replace it with a proper standalone
+shared-contract repo or submodule.
 
 ### P1: Bring-up, Logging, Replay, and Build Closure
 
