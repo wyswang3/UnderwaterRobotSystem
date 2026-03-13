@@ -60,9 +60,19 @@
 - `pwmctrl_test_telemetry_timeline_logger`
   - 覆盖 telemetry timeline/event CSV 落盘
   - 覆盖 `last_event` / `last_command_result` 去重写出
+- `pwmctrl_test_control_loop_logger`
+  - 覆盖 control CSV 写出 `nav_fault_code/nav_status_flags`
+  - 覆盖控制保护状态与导航诊断字段同时落盘
+- `nav_core_test_nav_diagnostic_fixture`
+  - 覆盖 `TimingTracePacketV1` 和 `NavState` 诊断样本的真实 ABI 落盘
+  - 覆盖可保留 fixture 目录供复盘工具直接消费
 - `merge_robot_timeline.py` 最小联合时间线验证
   - 覆盖 `nav_timing.bin + nav.bin + nav_state.bin + control CSV + telemetry CSV`
   - 覆盖统一按 monotonic 时间排序的离线复盘
+  - 覆盖 `--event/--window/--csv-out` 事故窗口导出
+- `urogcs` Python tests
+  - 覆盖 `StatusTelemetry` 新增 `nav_fault_code/nav_status_flags`
+  - 覆盖 TUI/viewmodel 对 reconnecting/mismatch/stale 的解释
 
 说明：
 
@@ -141,6 +151,7 @@
 
 - 驱动 EOF/断开会让主线程真实看到 port offline
 - 同一逻辑可以在新 PTY 节点上恢复，不依赖固定 `/dev/ttyUSB0`
+- kept fixture 日志可与 control/telemetry CSV 合并成统一事件窗口
 
 ### 2.2 传感器缺失/时间戳过期
 
@@ -186,6 +197,8 @@
 - `NavState -> NavView -> Control` 时间语义一致性单测
 - `TelemetryFrameV2.system.nav_age_ms` 透传单测
 - `ControlGuard` Auto 保护单测
+- `Telemetry -> GCS/TUI` 诊断字段单测
+- incident window CLI 过滤/导出单测
 
 ## 3. 控制保护测试建议
 

@@ -68,6 +68,21 @@ python3 nav_core/tools/merge_robot_timeline.py \
   --telemetry-events /path/to/telemetry_events_xxx.csv
 ```
 
+Windowed incident export:
+
+```bash
+python3 nav_core/tools/merge_robot_timeline.py \
+  --nav-timing /path/to/nav_timing.bin \
+  --nav-state /path/to/nav_state.bin \
+  --control-log /path/to/control_loop_xxx.csv \
+  --telemetry-timeline /path/to/telemetry_timeline_xxx.csv \
+  --telemetry-events /path/to/telemetry_events_xxx.csv \
+  --event reconnecting \
+  --window-before-ms 150 \
+  --window-after-ms 350 \
+  --csv-out reconnecting_window.csv
+```
+
 ## What To Look For
 
 ### Sample ordering
@@ -157,6 +172,40 @@ Observed merged timeline summary in the local fixture:
   - stale rejection
   - control failsafe row
   - telemetry event + command result rows
+
+## P1 Half-Bench Validation
+
+This round also validated a kept fixture generated from real logger/test code paths:
+
+- nav side
+  - `test_nav_diagnostic_fixture` wrote `nav_timing.bin` and `nav_state.bin`
+- control side
+  - `test_control_loop_logger` wrote a real control CSV row with `failsafe=1`
+- telemetry side
+  - `test_telemetry_timeline_logger` wrote real timeline/event CSV files with
+    `nav_fault_code=12`, `nav_status_flags=0x0600`, and `command_status=Failed`
+
+Observed results from the merged `reconnecting` window:
+
+- `selected_events=13`
+- sources present:
+  - `nav_timing`
+  - `nav_state`
+  - `control`
+  - `telemetry_timeline`
+  - `telemetry_events`
+- highlighted anchors included:
+  - `imu_device state=RECONNECTING`
+  - telemetry rows tagged `failsafe,invalid,reconnecting,mismatch,command_failed`
+  - control row tagged `failsafe,invalid,reconnecting`
+
+Observed results from the merged `command_failed` window:
+
+- `selected_events=7`
+- sources present:
+  - `telemetry_timeline`
+  - `telemetry_events`
+- runtime failure and command-result rows aligned within the same narrow window
 
 ## Current Limits
 

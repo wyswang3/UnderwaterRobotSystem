@@ -8,7 +8,7 @@
 
 namespace shared::msg {
 
-constexpr std::uint32_t kTelemetryFrameV2WireVersion = 1;
+constexpr std::uint32_t kTelemetryFrameV2WireVersion = 2;
 constexpr std::size_t   kTelemetryControllerNameMax  = 32;
 constexpr std::size_t   kTelemetryEventHistory       = 16;
 
@@ -182,6 +182,8 @@ struct SystemState final {
     std::uint8_t  reserved0       = 0;
 
     std::uint16_t last_fault_code = static_cast<std::uint16_t>(FaultCode::kNone);
+    std::uint16_t nav_fault_code  = 0;  // shared::msg::NavFaultCode
+    std::uint16_t nav_status_flags = 0; // shared::msg::NavStatusFlags
     std::uint16_t reserved1       = 0;
 
     std::uint32_t heartbeat_age_ms = 0;

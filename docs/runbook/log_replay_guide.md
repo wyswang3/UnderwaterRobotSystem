@@ -35,6 +35,43 @@ Primary tools:
 
 into one monotonic event list for incident review.
 
+## Event Window Export
+
+`merge_robot_timeline.py` now supports incident-oriented filtering:
+
+```bash
+python3 nav_core/tools/merge_robot_timeline.py \
+  --nav-timing /path/to/nav_timing.bin \
+  --nav-state /path/to/nav_state.bin \
+  --control-log /path/to/control_loop_xxx.csv \
+  --telemetry-timeline /path/to/telemetry_timeline_xxx.csv \
+  --telemetry-events /path/to/telemetry_events_xxx.csv \
+  --event reconnecting \
+  --window-before-ms 150 \
+  --window-after-ms 350 \
+  --csv-out reconnecting_window.csv
+```
+
+Supported `--event` anchors:
+
+- `reconnecting`
+- `mismatch`
+- `stale`
+- `invalid`
+- `degraded`
+- `failsafe`
+- `command_rejected`
+- `command_failed`
+- `command_expired`
+- `nav_fault`
+
+Other useful filters:
+
+- `--source control --source telemetry_timeline`
+- `--fault-code <code>`
+- `--command-status <code>`
+- `--from-ns ... --to-ns ...`
+
 ## What This Can Already Answer
 
 - when device binding changed state
@@ -42,6 +79,7 @@ into one monotonic event list for incident review.
 - when nav published invalid/degraded state
 - when control rejected Auto / entered failsafe
 - when telemetry/UI-facing state reflected the same transition
+- which event window should be exported for operator review instead of scanning the full log
 
 ## What Is Still Missing
 

@@ -9,7 +9,7 @@
 - `[AUTH]`
   - remote authoritative state actually reported by the vehicle stack
 - `[NAV]`
-  - remote nav trust summary
+  - remote nav trust summary plus specific diagnosis
 - `[CMD]`
   - local sent/ACK state plus remote command-result state
 - `[DOF]`
@@ -28,3 +28,36 @@ Examples:
   - estop still latched on the vehicle side
 - local `ARM` just sent, remote `armed=0`
   - arm request not yet applied or rejected
+
+## How To Read `[NAV]`
+
+The P1 TUI `NAV` line now carries three layers:
+
+- trust state
+  - `valid/stale/degraded`
+- fault name
+  - `nav_fault=<...>`
+- diagnosis summary
+  - `diag=stale,imu_reconnecting`
+  - `diag=invalid,dvl_mismatch`
+  - `diag=degraded`
+
+Interpretation examples:
+
+- `stale=1` and `diag=invalid,imu_reconnecting`
+  - navigation is currently unusable because the IMU path is reconnecting
+- `valid=0` and `diag=invalid,dvl_mismatch`
+  - the device identity is wrong, not just late
+- `valid=1` and `diag=degraded`
+  - control may still run in a limited mode
+
+## Command Status Rule
+
+`[CMD]` continues to separate:
+
+- local send
+- session ACK
+- remote runtime result
+
+If `[CMD] runtime=Failed` while `[AUTH]` and `[NAV]` show a nav fault, the command
+reached the vehicle stack but was refused by runtime protection.
