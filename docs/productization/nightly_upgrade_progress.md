@@ -6,78 +6,90 @@
 
 ## 当前目标
 
-本轮目标严格收敛为第一阶段 GUI 落地，不扩展成完整商业化平台。
+本轮目标严格收敛为 ROS2 外围桥接第一阶段：冻结第一批 `rov_msgs`、建立只读状态 bridge、完成最小验证。
 
 本轮只做：
 
-1. 在 `UnderWaterRobotGCS` 中落一个真正可运行的 `PySide6 + Qt` GUI 骨架。
-2. 完成首页级“总览仪表盘”。
-3. 让首页只复用现有 `GcsService + TelemetrySnapshot + ui_viewmodels`。
-4. 在 Linux 下完成启动和最小验证。
-5. 梳理 Windows 当前运行差异，但不进入打包阶段。
+1. 以现有 `shared/msg/*` 和接口契约为真源，冻结第一批 `rov_msgs` mirror 消息。
+2. 落一个只读 bridge，把权威 SHM 状态镜像到外围 topic。
+3. 补齐字段映射、时间语义、只读边界和最小验证文档。
+4. 保持核心控制、导航、状态传播、执行链完全不依赖 ROS2。
 
 ## 已完成项
 
-- 新增 `urogcs.app.gui_main` 作为 GUI 真入口。
-- 新增 `src/urogcs/app/gui/` 目录，包含：
-  - `gui_env.py`
-  - `overview_presenter.py`
-  - `main_window.py`
-- 新增 Qt 主窗口与总览首页。
-- 首页已能展示：
-  - 连接状态
-  - 设备状态
-  - 导航状态
-  - 控制状态
-  - 命令状态
-  - 故障摘要
-- GUI 首页状态严格建立在：
-  - `GcsServiceState`
-  - `TelemetrySnapshot`
-  - `build_dashboard_viewmodel()`
-  之上，没有重写协议或状态机。
-- 新增 `tests/test_gui_overview_presenter.py` 覆盖首页状态映射。
-- 新增 Linux GUI 启动脚本 `scripts/run_gui.sh`。
-- 把 `scripts/run_gui.ps1` 从“重定向到 TUI”升级为“GUI preview 入口”。
-- `preflight_check.py` 文案已同步为 GUI/TUI 双入口。
-- 更新 UI plan、operator guide、Windows audit 与 nightly 文档。
+- 在控制仓新增 `ros2_bridge/` 边界目录。
+- 新增第一批 `rov_msgs/msg/*.msg`：
+  - `TelemetryFrameV2.msg`
+  - `NavStateView.msg`
+  - `NavState.msg`
+  - `HealthSummary.msg`
+  - `CommandResult.msg`
+  - `EventRecord.msg`
+  - `ControlIntentState.msg`
+  - `MotorTestState.msg`
+  - `ControlState.msg`
+  - `SystemState.msg`
+- 新增 `rov_state_bridge` Python bridge：
+  - `layouts.py`
+  - `mapping.py`
+  - `shm_reader.py`
+  - `publisher_backend.py`
+  - `bridge.py`
+  - `cli.py`
+- bridge 已支持三类 backend：
+  - `recording`
+  - `stdout`
+  - `ros2`（本地仅做可选实现，未在当前环境跑通）
+- 默认 bridge topic 已固定：
+  - `/rov/telemetry`
+  - `/rov/health`
+  - `/rov/nav_view`
+  - `/rov/nav_state_raw`
+- 默认只读数据源已固定：
+  - `/rovctrl_telemetry_v2`
+  - `/rovctrl_nav_view_v1`
+  - `/rov_nav_state_v1`
+- 新增 `tools/run_sample_bridge_validation.py`，用于没有 ROS2 runtime 时的 deterministic dry-run。
+- 新增并跑通最小单测，覆盖：
+  - 字段映射正确性
+  - 只读 SHM 读取
+  - ABI/layout 尺寸一致性
+  - 发布失败隔离
 
 ## 修改的仓库 / 文件
-
-### GCS / UI 仓
-
-仓库：`/home/wys/orangepi/UnderWaterRobotGCS`
-
-本轮新增 / 更新的关键文件：
-
-- `src/urogcs/app/gui_main.py`
-- `src/urogcs/app/gui/__init__.py`
-- `src/urogcs/app/gui/gui_env.py`
-- `src/urogcs/app/gui/overview_presenter.py`
-- `src/urogcs/app/gui/main_window.py`
-- `src/urogcs/tools/preflight_check.py`
-- `scripts/run_gui.sh`
-- `scripts/run_gui.ps1`
-- `tests/test_gui_overview_presenter.py`
-
-说明：
-
-- GCS 仓在本轮开始前已带有上一轮 TUI / preflight / customer usability 改动未提交。
-- 本轮继续在该脏工作区上追加 GUI 第一阶段改动，没有回滚前序变更。
 
 ### 控制仓
 
 仓库：`/home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV`
 
-- 本轮无代码改动。
-- 本轮只继续复用其 `gcs_server` / `nav_viewd` / `pwm_control_program` 作为联调上下游参考。
+本轮新增 / 更新的关键文件：
+
+- `ros2_bridge/README.md`
+- `ros2_bridge/rov_msgs/msg/*.msg`
+- `ros2_bridge/rov_state_bridge/src/rov_state_bridge/*.py`
+- `ros2_bridge/rov_state_bridge/tests/test_mapping.py`
+- `ros2_bridge/rov_state_bridge/tests/test_bridge.py`
+- `ros2_bridge/rov_state_bridge/tests/test_shm_reader.py`
+- `ros2_bridge/rov_state_bridge/tests/test_layout_contracts.py`
+- `ros2_bridge/rov_state_bridge/tools/run_sample_bridge_validation.py`
+
+说明：
+
+- 控制仓本轮只新增外围 bridge 代码，不修改控制主循环、PWM、gateway authority 边界。
 
 ### 导航仓
 
 仓库：`/home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation`
 
 - 本轮无代码改动。
-- 本轮只继续复用既有导航设备绑定、诊断和契约语义。
+- 本轮只继续复用既有 `NavState` 契约和导航主链作为只读源。
+
+### GCS / UI 仓
+
+仓库：`/home/wys/orangepi/UnderWaterRobotGCS`
+
+- 本轮无代码改动。
+- 当前只把 ROS2 bridge 视为未来 UI backend 的外围输入，不改现有 GCS 状态来源。
 
 ### 文档仓
 
@@ -85,116 +97,94 @@
 
 本轮更新：
 
-- `docs/productization/ui_upgrade_plan.md`
-- `docs/runbook/gcs_ui_operator_guide.md`
-- `docs/productization/ui_windows_support_audit.md`
+- `docs/architecture/upgrade_strategy.md`
+- `docs/interfaces/telemetry_ui_contract.md`
 - `docs/productization/nightly_upgrade_progress.md`
+- `docs/architecture/ros2_bridge_stage1_plan.md`
+- `docs/interfaces/rov_msgs_mapping.md`
+- `docs/runbook/ros2_bridge_validation_guide.md`
 
 说明：
 
-- 文档仓在本轮开始前已经带有上一轮 P0 / customer usability 文档改动。
-- 本轮只继续追加 GUI 第一阶段相关文档，不回滚前序改动。
+- 文档仓同时保留上一轮 `ros2_refactor_assessment.md`，作为本轮实施依据。
 
 ## 编译结果
 
-### GCS / UI 仓
+### 控制仓
 
 - `python3 -m py_compile`：通过
-  - `src/urogcs/app/gui/gui_env.py`
-  - `src/urogcs/app/gui/overview_presenter.py`
-  - `src/urogcs/app/gui/main_window.py`
-  - `src/urogcs/app/gui_main.py`
-  - `src/urogcs/tools/preflight_check.py`
-  - `tests/test_gui_overview_presenter.py`
+  - `ros2_bridge/rov_state_bridge/src/rov_state_bridge/*.py`
+  - `ros2_bridge/rov_state_bridge/tests/test_*.py`
+  - `ros2_bridge/rov_state_bridge/tools/run_sample_bridge_validation.py`
 
-### 启动脚本 / 检查脚本
+### ROS2 工具链状态
 
-- `QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m urogcs.app.gui_main --no-auto-connect --quit-after-ms 200`：通过，退出码 `0`
-- `QT_QPA_PLATFORM=offscreen bash scripts/run_gui.sh --no-auto-connect --quit-after-ms 200`：通过，退出码 `0`
-- `pwsh` 语法解析 `scripts/run_gui.ps1`：通过
-
-### 控制仓 / 导航仓
-
-- 本轮没有代码改动，因此未新增编译动作。
+- 当前工作机缺少 `ros2` / `colcon` / `rclpy` / 生成后的 `rov_msgs` Python 包。
+- 因此本轮没有做真实 ROS2 graph 编译或 topic 回环验证。
+- 这属于环境限制，不属于 bridge 设计边界改变。
 
 ## 测试结果
 
-- `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m unittest tests.test_gui_overview_presenter`：通过
-- `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`：通过
-- GCS 当前共运行 `10` 个 Python 单测，结果 `OK`
+- `cd /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/ros2_bridge/rov_state_bridge && PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`：通过
+- 当前 `rov_state_bridge` 共运行 `9` 个 Python 单测，结果 `OK`
+- `cd /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/ros2_bridge/rov_state_bridge && PYTHONPATH=src python3 tools/run_sample_bridge_validation.py`：通过
+  - 成功发布 `/rov/telemetry`、`/rov/health`、`/rov/nav_view`、`/rov/nav_state_raw`
+  - `stamp_ns` / `t_ns` / `age_ms` / `fault_code` / `status_flags` 与样本源一致
+- `cd /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/ros2_bridge/rov_state_bridge && PYTHONPATH=src python3 -m rov_state_bridge --backend stdout --once`：通过
+  - 在当前机器已有 live telemetry SHM 时可直接输出 mirror JSON
 
 ## 更新的文档
 
 本轮更新后的参考文档包括：
 
-- `docs/productization/ui_upgrade_plan.md`
-- `docs/runbook/gcs_ui_operator_guide.md`
-- `docs/productization/ui_windows_support_audit.md`
+- `docs/architecture/upgrade_strategy.md`
+- `docs/interfaces/telemetry_ui_contract.md`
 - `docs/productization/nightly_upgrade_progress.md`
+- `docs/architecture/ros2_bridge_stage1_plan.md`
+- `docs/interfaces/rov_msgs_mapping.md`
+- `docs/runbook/ros2_bridge_validation_guide.md`
 
 ## 本地 Git 收口情况
-
-### GCS / UI 仓
-
-- 路径：`/home/wys/orangepi/UnderWaterRobotGCS`
-- 分支：`feature/gcs-p0-status-telemetry-alignment`
-- HEAD commit：`3e2cb0437a24ecf233b15ac74d2af9f2df1cd33e`
-- commit message：`Refresh GCS readme for developers`
-- 工作区：不干净
-
-当前仍在工作区中的主要类型：
-
-- 上一轮 TUI / preflight / usability 改动
-- 本轮 GUI 骨架与首页改动
-- 本轮单测和 launcher 改动
-
-说明：
-
-- 已清理由本轮验证产生的 `__pycache__` / `.pyc` 缓存，不把缓存文件纳入收口。
 
 ### 控制仓
 
 - 路径：`/home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV`
 - 分支：`feature/control-p0-status-telemetry-baseline`
-- HEAD commit：`c23d83d52fa972a0a509714f6d64229de99ec6a1`
-- commit message：`Refresh control stack readmes and operator guide`
-- 工作区：干净
+- 工作区：待收口
 
 ### 导航仓
 
 - 路径：`/home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation`
 - 分支：`feature/nav-p0-contract-baseline`
-- HEAD commit：`2329255905570fcd6d89fc71cca6d9511df46f6d`
-- commit message：`Refresh navigation readmes for developers`
 - 工作区：干净
+
+### GCS / UI 仓
+
+- 路径：`/home/wys/orangepi/UnderWaterRobotGCS`
+- 分支：`feature/gcs-p0-status-telemetry-alignment`
+- 工作区：未改动
 
 ### 文档仓
 
 - 路径：`/home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem`
 - 分支：`feature/docs-p0-baseline-alignment`
-- HEAD commit：`054ea736399f9bb93e4fa62c5ae9f12e0018dc7f`
-- commit message：`Refresh system and offline nav readmes`
-- 工作区：不干净
-
-说明：
-
-- 文档仓仍同时包含上一轮 baseline 文档改动和本轮 GUI 第一阶段文档改动。
+- 工作区：待收口
 
 ## 当前阻塞点
 
-- 还没有真实 Windows 主机上的 GUI 运行样本。
-- `pyproject.toml` 仍为空，依赖和安装流程还未产品化。
-- GUI 当前只有首页，没有多页面导航，也没有启动编排和配置编排。
+- 本地环境缺少完整 ROS2 toolchain，无法完成 colcon build 和真实 ROS2 topic 订阅回环。
+- 当前 stage1 只冻结 `.msg` 文件和 Python bridge，还没有 package.xml / CMake / installer 级收口。
 
 ## 剩余风险
 
-- 不能把当前 GUI 首页描述成完整商业化上位机。
-- Windows 路径当前只能称为 preview，不宜承诺 parity。
-- GCS 仓与文档仓都带有前序未提交改动，后续提交时必须把“上一轮”和“本轮 GUI”边界拆清。
+- 不能把当前 bridge 描述成“ROS2 已接管系统”。
+- `HealthSummary` 是从 `TelemetryFrameV2.system` 派生的紧凑镜像，不是新的 authority。
+- `ControlIntent` 仍然不能作为 ROS2 权威控制通道。
+- 当前默认只验证了 Linux 上的 `/dev/shm` 只读路径。
 
 ## 下一步建议
 
-1. 进入第二阶段时，先补“最近命令 / 最近失败 / 更清晰 fault detail”区域。
-2. 再补启动向导和更明确的连接流程，但先不要进入 SSH 编排。
-3. 在 GUI 首页稳定后，再规划导航设备扫描和串口配置页。
-4. 在真实 Windows 主机验证完成前，不进入 Windows 打包和安装器阶段。
+1. 在有 ROS2 toolchain 的 Linux 主机上补 colcon / generated msg / `rclpy` 真实发布验证。
+2. 基于当前 mirror topic 做 health monitor 和 UI backend，只消费只读 topic。
+3. 若需要外围服务接口，先从 bench / diagnostics action 或 service 开始，不碰 authority 控制入口。
+4. 后续若要引入 rosbag2，也必须先保持 `stamp_ns` / `age_ms` 原语义不变。
