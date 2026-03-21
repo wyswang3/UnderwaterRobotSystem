@@ -6,15 +6,16 @@
 
 ## 当前目标
 
-本轮目标收敛为：在不触碰 authority 主链的前提下，把 ROS2 外围桥接从“只读 mirror 基础”推进到“advisory health monitor + GCS read-only preview source”。
+本轮目标收敛为：在不触碰 authority 主链的前提下，把 ROS2 外围桥接从“只读 mirror 基础”推进到“advisory health monitor + GCS read-only preview source”，并正式建立会话恢复与交接文档基线。
 
 本轮只做：
 
 1. 在控制仓继续沿用现有 `rov_msgs` / `rov_state_bridge` 边界。
 2. 新增 advisory health monitor 核心与可选 ROS2 node wrapper。
 3. 在 GCS 仓新增 ROS2 mirror -> `TelemetrySnapshot` 适配层和 preview source。
-4. 保持控制、导航、状态传播、执行链完全不依赖 ROS2。
-5. 不进入 rosbag2、写回控制、故障恢复按钮回灌或完整 ROS2 runtime 交付。
+4. 建立 `docs/productization/codex_handoff.md`，作为后续重启后的优先恢复入口。
+5. 保持控制、导航、状态传播、执行链完全不依赖 ROS2。
+6. 不进入 rosbag2、写回控制、故障恢复按钮回灌或完整 ROS2 runtime 交付。
 
 ## 已完成项
 
@@ -60,6 +61,7 @@
 - 更新 `ros2_bridge_validation_guide.md`，补控制仓/GCS 仓新的验证路径。
 - 更新 `telemetry_ui_contract.md`，补 GCS ROS2 preview 语义边界。
 - 更新 `gcs_ui_operator_guide.md`，补 ROS2 preview 启动方式与边界。
+- 新增 `codex_handoff.md`，作为后续会话恢复与交接摘要。
 - 更新本进展文档。
 
 ## 修改的仓库 / 文件
@@ -108,6 +110,7 @@
 - `docs/interfaces/telemetry_ui_contract.md`
 - `docs/runbook/gcs_ui_operator_guide.md`
 - `docs/productization/nightly_upgrade_progress.md`
+- `docs/productization/codex_handoff.md`
 
 ## 编译结果
 
@@ -160,6 +163,7 @@
 - `docs/interfaces/telemetry_ui_contract.md`
 - `docs/runbook/gcs_ui_operator_guide.md`
 - `docs/productization/nightly_upgrade_progress.md`
+- `docs/productization/codex_handoff.md`
 
 ## 本地 Git 收口情况
 
@@ -188,8 +192,9 @@
 
 - 路径：`/home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem`
 - 分支：`feature/docs-p0-baseline-alignment`
-- 本轮文档改动包含在当前提交中
-- 工作区：待随本次文档提交收口
+- 当前稳定参考提交：`bf077a2` `Document ROS2 preview health monitor and GCS source`
+- 本轮 `nightly` / `handoff` 更新已纳入本次文档改动
+- 工作区目标：干净
 
 ## 当前阻塞点
 
