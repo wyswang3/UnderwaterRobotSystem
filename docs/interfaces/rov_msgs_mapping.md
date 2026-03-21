@@ -2,7 +2,7 @@
 
 ## 适用范围
 
-本文档定义 ROS2 外围桥接第一阶段 `rov_msgs` 的字段映射基线。
+本文档定义 ROS2 外围桥接当前阶段 `rov_msgs` 的字段映射基线。
 
 语义真源始终是：
 
@@ -14,7 +14,7 @@
 - `docs/interfaces/nav_view_contract.md`
 - `docs/interfaces/control_intent_contract.md`
 
-## 1. 第一批消息清单
+## 1. 当前消息清单
 
 | `rov_msgs` 消息 | 来源 | 说明 | 是否只读 |
 | --- | --- | --- | --- |
@@ -28,6 +28,12 @@
 | `NavStateView` | `shared::msg::NavStateView` | 控制消费视角导航状态 | 是 |
 | `NavState` | `shared::msg::NavState` | 导航 raw/debug 状态 | 是 |
 | `HealthSummary` | `TelemetryFrameV2.system` + `TelemetryFrameV2.seq/stamp_ns` | 紧凑健康摘要 | 是 |
+| `HealthMonitorStatus` | `TelemetryFrameV2` + `NavStateView` | 外围 advisory health / recovery 摘要 | 是 |
+
+说明：
+
+- `HealthMonitorStatus` 是外围 health monitor 节点的派生输出，不是新的 authority 契约。
+- 它只能给 UI backend / diagnostics / runbook 指引使用，不能回灌核心链。
 
 ## 2. TelemetryFrameV2 mirror
 
@@ -222,7 +228,47 @@
 | `nav_age_ms` | `TelemetryFrameV2.system.nav_age_ms` | 原样镜像 |
 | `heartbeat_age_ms` | `TelemetryFrameV2.system.heartbeat_age_ms` | 原样镜像 |
 
-## 7. 时间语义保留规则
+## 7. HealthMonitorStatus mirror
+
+`HealthMonitorStatus` 是外围 advisory 节点的派生输出。
+
+来源：
+
+- `TelemetryFrameV2`
+- 可选 `NavStateView`
+
+关键字段：
+
+- `stamp_ns`
+- `telemetry_seq`
+- `severity`
+- `session_state`
+- `health_state`
+- `fault_state`
+- `last_fault_code`
+- `command_status`
+- `command_fault_code`
+- `nav_fault_code`
+- `nav_status_flags`
+- `nav_age_ms`
+- `heartbeat_age_ms`
+- `nav_valid`
+- `nav_stale`
+- `nav_degraded`
+- `estop_latched`
+- `failsafe_active`
+- `imu_online / dvl_online`
+- `imu_reconnecting / dvl_reconnecting`
+- `imu_mismatch / dvl_mismatch`
+- `summary`
+- `recommended_action`
+
+说明：
+
+- 它只做外围告警摘要和建议动作，不改变核心 stale / fault / safety 语义。
+- `summary` / `recommended_action` 是派生解释层，不是新的 authority field。
+
+## 8. 时间语义保留规则
 
 以下规则是强约束：
 
@@ -231,7 +277,7 @@
 3. `age_ms` 直接镜像现有权威值，不在 bridge 中重新计算 topic latency。
 4. `fault_code`、`status_flags`、`nav_valid`、`nav_stale`、`nav_degraded`、`command_result.status` 必须逐字段保留。
 
-## 8. 只读边界
+## 9. 只读边界
 
 所有 `rov_msgs` 都是只读镜像，不能反向驱动核心链。
 
@@ -240,4 +286,5 @@
 - 用 `rov_msgs/ControlIntentState` 替代 `ControlIntent` authority 输入
 - 用 `rov_msgs/NavStateView` 写回控制链
 - 用 `rov_msgs/NavState` 替代 `nav_viewd`
+- 用 `HealthMonitorStatus` 做安全裁决或控制放行
 - 根据 ROS2 topic 状态反向修改核心 stale / health / fault 语义

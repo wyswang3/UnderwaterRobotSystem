@@ -7,7 +7,8 @@
 当前结论：
 
 - TUI 仍是当前完整键盘 teleop 基线。
-- GUI 已进入第一阶段 preview，可作为总览仪表盘首页使用。
+- GUI 已支持首页总览 preview。
+- GUI 还支持一个 read-only ROS2 preview source，用于消费 `/rov/telemetry` mirror。
 - Linux 是当前 GUI/TUI 都能稳定验证的主路径。
 - Windows 当前提供 GUI preview 与最小诊断路径，但还没有完成现场交付级验证。
 
@@ -21,21 +22,28 @@
 2. `nav_viewd`
 3. `gcs_server`
 4. `pwm_control_program`
-
-当前主机上可见的控制侧目标包括：
-
-- `/home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/build/bin/gcs_server`
-- `/home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/build/bin/nav_viewd`
-- `/home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/build/bin/pwm_control_program`
+5. 如需外围 bridge，再启动 `rov_state_bridge` / `rov_health_monitor`
 
 ### 操作员侧
 
-#### Linux GUI preview
+#### Linux GUI preview（UDP 主路径）
 
 ```bash
 cd /home/wys/orangepi/UnderWaterRobotGCS
 UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_gui.sh
 ```
+
+#### Linux GUI ROS2 preview（只读）
+
+```bash
+cd /home/wys/orangepi/UnderWaterRobotGCS
+PYTHONPATH=src python3 -m urogcs.app.gui_main --telemetry-source ros2
+```
+
+说明：
+
+- 这条路径要求本机已安装 `rclpy` 和生成后的 `rov_msgs` Python 包。
+- 它只消费 mirror topic，不替代当前 UDP teleop。
 
 #### Linux TUI teleop
 
@@ -61,12 +69,6 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 .\scripts\run_tui.ps1 -PreflightOnly
 .\scripts\run_tui.ps1
 ```
-
-说明：
-
-- `run_gui.sh` / `run_gui.ps1` 现在会先跑 preflight，再进入 `urogcs.app.gui_main`。
-- GUI 当前是“总览仪表盘首页 preview”，不是完整交付平台。
-- 如需完整键盘 teleop，当前仍以 TUI 为准。
 
 ## 2. preflight 通过后该看到什么
 
@@ -99,8 +101,6 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 - `Handshake incomplete`
 - `Disconnected`
 
-它来自会话状态、`last STATUS age` 和 `link_alive` 的组合显示。
-
 ### Devices
 
 客户应优先识别：
@@ -111,8 +111,6 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 - `Offline`
 - `Degraded`
 
-卡片内会继续展开 `IMU=` 与 `DVL=` 的单独状态。
-
 ### Navigation
 
 主要看：
@@ -121,13 +119,6 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 - `Degraded`
 - `Stale`
 - `Invalid`
-
-卡片细节会保留：
-
-- `state=`
-- `health=`
-- `diag=`
-- `fault=`
 
 ### Control
 
@@ -140,26 +131,12 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 - `Failsafe`
 - `E-Stop latched`
 
-卡片里还会保留：
-
-- `controller=`
-- `desired=`
-- `fault_state=`
-- `fails=`
-
 ### Command
 
 这一张卡片明确把 transport 和 runtime 分开：
 
-- `transport=` 使用 `GcsServiceState` 的本地发送 / ACK 结果
+- `transport=` 使用本地会话发送 / ACK 结果
 - `runtime=` 使用 telemetry 权威 `command_status`
-
-因此你会看到类似：
-
-- `acknowledged / executed`
-- `pending_ack / none`
-- `sent / none`
-- `ack_invalid_session / failed`
 
 关键规则：
 
@@ -168,20 +145,7 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 
 ### Fault Summary
 
-这是当前首页上的最小故障摘要卡。
-
-它来自现有 alarm 规则，不是 GUI 自己编新逻辑。
-
-当前至少会汇总：
-
-- session 未建立
-- 链路 stale
-- estop
-- failsafe
-- nav 不可信
-- system fault
-- command failed
-- failure counter 增长
+它来自现有 alarm 规则和 advisory health monitor 摘要，不是 GUI 自己编新逻辑。
 
 ## 4. 当前 GUI 与 TUI 的边界
 
@@ -194,6 +158,7 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 - 看命令状态
 - 看故障摘要
 - 做连接 / 断开入口
+- 在 ROS2 preview 中只读查看 mirror 数据
 
 ### GUI 当前不做什么
 
@@ -201,22 +166,38 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 - 不做日志导出
 - 不做设备串口写回
 - 不做 SSH 编排
-- 不做故障恢复中心
+- 不做故障恢复回灌按钮
 - 不做安全裁决
 
-## 5. 当前最小安全操作顺序
+## 5. ROS2 preview 当前边界
 
-1. 先看 `Connection` 是否为 `Connected`。
+当前 ROS2 preview 只做：
+
+- 读 `/rov/telemetry` mirror
+- 复用现有 `StatusTelemetry` 压缩语义
+- 把 mirror 状态映射到现有 GUI 卡片
+
+当前 ROS2 preview 不做：
+
+- 发送 control intent
+- 发送 heartbeat
+- 替代 `gcs_server`
+- 替代 TUI teleop
+
+## 6. 当前最小安全操作顺序
+
+1. 先看 `Connection` 是否为可用状态。
 2. 再看 `Devices` 是否出现 `Mismatch` / `Reconnecting` / `Offline`。
 3. 再看 `Navigation` 是否为 `Invalid` / `Stale`。
 4. 再看 `Control` 是否处于 `Failsafe` / `E-Stop latched` / `Disarmed`。
-5. 如需真正 teleop，切换到 TUI 路径继续操作。
+5. 如需真正 teleop，切换到 TUI 或 UDP 主路径继续操作。
 6. 每次操作后都看 `Command` 和 `Control`，不要只看本地按钮是否点过。
 
-## 6. 当前已知边界
+## 7. 当前已知边界
 
 - GUI 当前只有一个首页，没有多页面导航。
 - GUI 首页是 preview，不应被描述为完整商业化平台。
+- ROS2 preview 仍是 read-only，不应被描述为完整 ROS2 UI backend。
 - Windows 路径虽然已有 `run_gui.ps1`，但还没有完成真实现场验证。
 - `pyproject.toml` 仍为空，当前不是 packaged installer 基线。
 - 如需更细的恢复动作，请继续看 `customer_fault_recovery_guide.md`。
