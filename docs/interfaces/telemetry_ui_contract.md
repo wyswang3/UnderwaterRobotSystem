@@ -1,85 +1,164 @@
 # Telemetry UI Contract
 
-## UI Design Principle
+## 适用范围
 
-UI must separate local operator intent from remote authoritative runtime state.
+当前 UI/遥测契约的真实上游为：
 
-## Required Remote Runtime Fields
+- `shared/msg/telemetry_frame_v2.hpp`
+- gateway `StatusTelemetry` 适配层
+- `UnderWaterRobotGCS/src/urogcs/telemetry/ui_viewmodels.py`
+- `UnderWaterRobotGCS/src/urogcs/app/tui/*`
 
-- session: `session_established`, `link_alive`
-- control: `armed`, `estop`, `mode`, `failsafe_active`
-- nav: `nav_valid`, `nav_state`, `nav_stale`, `nav_degraded`
-- nav diagnostics: `nav_fault_code`, `nav_status_flags`
-- health: `fault_state`, `health_state`, `last_fault_code`
-- controllers: `active_controller`, `desired_controller`
-- command result: `command_status`, `command_cmd_seq`, `command_fault_code`
+默认共享内存名称：
 
-## Nav Diagnostic Interpretation
+- `/rovctrl_telemetry_v2`
 
-`nav_fault_code` and `nav_status_flags` now come from the authoritative control-core
-telemetry frame, which itself mirrors the latest `NavStateView` consumed by control.
-UI/TUI must not guess reconnecting or mismatch state locally.
+当前 UI 真实基线：
 
-Minimum derived UI labels:
+- TUI 是当前成熟主路径
+- GUI 入口文件存在，但 `src/urogcs/app/gui_main.py` 当前为空
+- 因此当前 UI 契约应先以 TUI 为准，不要假定图形界面已经产品化
+
+## 1. 总原则
+
+UI 必须明确区分两类状态：
+
+1. 本地操作员刚发送或刚请求的状态
+2. 机器人侧权威运行时已经生效的状态
+
+这两者不相等时，不得把本地请求误显示成远端已执行成功。
+
+## 2. 远端权威字段
+
+当前 UI 必须能拿到并正确解释的远端字段包括：
+
+### 会话/链路
+
+- `session_state`
+- `session_id`
+- `link_alive` 或等价链路活性
+- `heartbeat_age_ms`
+
+### 控制运行态
+
+- `active_mode`
+- `armed`
+- `estop_latched`
+- `failsafe_active`
+- `control_source`
+- `controller_name`
+- `desired_controller`
+
+### 导航运行态
+
+- `nav_valid`
+- `nav_state`
+- `nav_stale`
+- `nav_degraded`
+- `nav_fault_code`
+- `nav_status_flags`
+- `nav_age_ms`
+
+### 故障/健康
+
+- `fault_state`
+- `health_state`
+- `last_fault_code`
+
+### 命令结果
+
+- `last_command_result.status`
+- `last_command_result.cmd_seq`
+- `last_command_result.fault_code`
+- `last_event`
+
+## 3. 本地字段
+
+当前 UI 仍需要单独保留本地状态：
+
+- 最近一次发送的命令类型
+- 最近一次发送的命令序号
+- 是否还在等待 ACK
+- 最近一次 ACK 结果
+- 最近一次本地下发的 DOF 意图
+- 本地请求的 mode/estop/arm 意图
+
+## 4. 当前推荐显示层次
+
+TUI 当前至少应保持下面的阅读层次：
+
+- `[ROV]`
+  - 会话/链路/接收年龄
+- `[OP ]`
+  - 本地请求意图
+- `[AUTH]`
+  - 远端权威运行态
+- `[NAV]`
+  - 导航可信性和诊断摘要
+- `[CMD]`
+  - 本地发送、ACK、远端命令结果三层状态
+- `[DOF]`
+  - 最近一次本地 DOF 发送值
+- `[LOG]`
+  - 最近一条本地提示
+
+## 5. 命令状态解释规则
+
+命令状态必须分层展示：
+
+1. `sent`
+   - 本地已经发出
+2. `acked`
+   - 会话/传输已 ACK
+3. `accepted/executed`
+   - 远端控制栈已经接受/执行
+4. `rejected/expired/failed`
+   - 远端控制栈明确拒绝、过期或执行失败
+
+硬规则：
+
+- transport ACK 不等于运行时执行成功
+- `ARM`、`ESTOP`、mode 切换成功，必须以远端权威状态或远端命令结果为准
+
+## 6. 导航诊断解释规则
+
+当前推荐从 `nav_fault_code + nav_status_flags` 派生操作员可读摘要：
 
 - `reconnecting`
-  - `nav_status_flags` contains IMU/DVL reconnecting bits
+  - 对应 `IMU/DVL reconnecting` 位
 - `mismatch`
-  - `nav_status_flags` contains IMU/DVL bind mismatch bits
+  - 对应设备身份不匹配位
 - `offline`
-  - device fault code indicates not-found/disconnected and no mismatch/reconnecting bit explains it better
+  - 对应 not-found/disconnected 类 fault，且不是 mismatch/reconnecting 更能解释的情况
 - `stale`
   - `nav_stale=1`
 - `invalid`
   - `nav_valid=0`
 - `degraded`
-  - `nav_valid=1` and `nav_degraded=1`
+  - `nav_valid=1 && nav_degraded=1`
 
-The recommended operator-facing presentation is:
+当前 UI 的最小目标不是“漂亮”，而是“可快速判断为什么不能用”。
 
-- coarse trust state:
-  - `valid/stale/degraded`
-- specific reason:
-  - `nav_fault_code` name
-- device diagnosis:
-  - summary derived from `nav_status_flags`
+## 7. 权威边界
 
-## Required Local Command Fields
+当前必须记住：
 
-- last transmitted command kind and sequence
-- pending ACK sequence/kind
-- last ACK code and reason
+1. `TelemetryFrameV2` 是运行态语义真源。
+2. gateway session 只对会话/链路字段权威。
+3. UI 不能自行发明新的安全判断逻辑。
+4. 若未来增加 GUI 或 ROS 2 consumer，也必须消费同一套权威字段，而不是重造一套演示态语义。
 
-## P0 TUI Baseline
+## 8. 兼容性说明
 
-The current TUI should show:
+gateway 当前仍可能向 GCS 输出紧凑 `StatusTelemetry` 以保持兼容。
 
-- `[ROV]` session/link/rx-age/status-seq
-- `[OP ]` local requested mode/estop/throttle
-- `[AUTH]` remote `armed/estop/mode/failsafe/controller`
-- `[NAV]` remote nav validity/state/degraded/stale/fault
-- `[CMD]` local sent/ACK state plus remote command result state
-- `[DOF]` last sent DOF intent
-- `[LOG]` last local log line
+但兼容不是允许丢语义：
 
-## P1 Diagnostic Baseline
+- `armed`
+- `mode`
+- `failsafe`
+- `nav_valid/nav_state/nav_stale/nav_degraded`
+- `fault/health`
+- `command result`
 
-The current TUI baseline should additionally show:
-
-- `nav_fault=<NavFaultCode name>`
-- `diag=<comma-separated nav diagnosis summary>`
-
-This is intentionally minimal but sufficient to distinguish:
-
-- `stale`
-- `invalid`
-- `degraded`
-- `imu_reconnecting` / `dvl_reconnecting`
-- `imu_mismatch` / `dvl_mismatch`
-- offline device faults inferred from `nav_fault_code`
-
-## Hard Rule
-
-The UI must never imply success of `ARM`, `ESTOP`, or mode switching based only on
-key press or packet send. Success is only shown when remote authoritative state or
-command result confirms it.
+这些关键权威字段不能在适配过程中被模糊掉。
