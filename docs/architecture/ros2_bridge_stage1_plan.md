@@ -103,28 +103,33 @@
 当前 stage1 已做到：
 
 - 第一批 `.msg` 文件冻结
+- `rov_msgs` / `rov_state_bridge` package 元数据补齐，可执行 `colcon build`
 - 只读 SHM reader 与 mirror mapping 实现完成
 - bridge 可输出 `/rov/telemetry`、`/rov/health`、`/rov/nav_view`、`/rov/nav_state_raw`
+- 可选 advisory health monitor node 可输出 `/rov/health_monitor`
+- GCS ROS2 preview 可消费 telemetry mirror 与 advisory health monitor
 - 单测覆盖映射、reader、失败隔离和 ABI 尺寸一致性
-- 提供一个不依赖 ROS2 runtime 的 dry-run 验证脚本
+- 已完成本机 generated msg 字段校验、ROS2 graph 发布/订阅验证、rosbag2 录包与回放验证
+- 提供不依赖真实 SHM 的 dry-run 与 file-backed validation 脚本
 
 当前 stage1 还没有做到：
 
-- colcon build / generated Python msg 包验证
-- 真实 ROS2 graph 下的发布订阅回环
-- rosbag2 录包验证
-- 独立的 `/rov/events` topic 或 health monitor node
+- 真实设备上的 sidecar 部署与长时运行验证
+- 操作员 GUI 基于 ROS2 的写回控制链路
+- 独立的 transport/session mirror topic
+- 独立的 `/rov/events` topic
+- 真机条件下 `/rov/health_monitor` 与 reconnect / fault-recovery bench 的联合验证
 
 ## 7. 后续阶段建议
 
 ### Stage2
 
-- 在 ROS2 主机上补 package 化和真实发布验证
-- 加入 health monitor / diagnostics aggregator
-- 为 GUI backend 提供更稳定的消费入口
+- 在真实设备上部署 sidecar，验证与 `nav_daemon` / `nav_viewd` / `ControlGuard` 共存时不影响 authority 主链
+- 补独立 transport/session mirror topic，减少 GCS 对 `session_state` 的保守推断
+- 补 reconnect / fault-recovery / incident bundle 场景下的 ROS2 sidecar 联合验证
 
 ### Stage3
 
-- 引入 rosbag2 录包与 replay 对照
-- 视需要增加 bench / diagnostics service 或 action
+- 引入独立 `/rov/events` topic 与更细粒度 diagnostics aggregator
+- 视需要增加 rosbag2 replay compare、bench service 或 action
 - 仍保持只读 mirror 为主，不让 ROS2 接管 authority

@@ -8,7 +8,7 @@
 
 - TUI 仍是当前完整键盘 teleop 基线。
 - GUI 已支持首页总览 preview。
-- GUI 还支持一个 read-only ROS2 preview source，用于消费 `/rov/telemetry` mirror。
+- GUI 还支持一个 read-only ROS2 preview source，用于消费 `/rov/telemetry` mirror，并可选显示 `/rov/health_monitor` 的 advisory 恢复建议。
 - Linux 是当前 GUI/TUI 都能稳定验证的主路径。
 - Windows 当前提供 GUI preview 与最小诊断路径，但还没有完成现场交付级验证。
 
@@ -36,13 +36,17 @@ UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_gui.sh
 #### Linux GUI ROS2 preview（只读）
 
 ```bash
+. /opt/ros/humble/setup.bash
+. /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/ros2_bridge/install/setup.bash
 cd /home/wys/orangepi/UnderWaterRobotGCS
 PYTHONPATH=src python3 -m urogcs.app.gui_main --telemetry-source ros2
 ```
 
 说明：
 
-- 这条路径要求本机已安装 `rclpy` 和生成后的 `rov_msgs` Python 包。
+- 这条路径要求 `ros2_bridge` 已先完成 `colcon build`，并且当前 shell 已 source 对应 `install/setup.bash`。
+- 若本机同时存在 conda Python 与 ROS2 Humble system Python，需使用能正确导入生成后 `rov_msgs` 的那一套环境。
+- 若 ROS2 图中同时存在 `/rov/health_monitor`，GUI 会在 `Fault Summary` 和页脚里显示 advisory 摘要与建议恢复动作。
 - 它只消费 mirror topic，不替代当前 UDP teleop。
 
 #### Linux TUI teleop
@@ -145,7 +149,7 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 
 ### Fault Summary
 
-它来自现有 alarm 规则和 advisory health monitor 摘要，不是 GUI 自己编新逻辑。
+它来自现有 alarm 规则和 advisory health monitor 摘要，不是 GUI 自己编新逻辑。ROS2 preview 下若收到 `/rov/health_monitor`，这里还会附带 `recommended_action`。
 
 ## 4. 当前 GUI 与 TUI 的边界
 
@@ -174,8 +178,9 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 当前 ROS2 preview 只做：
 
 - 读 `/rov/telemetry` mirror
+- 可选读 `/rov/health_monitor` advisory topic
 - 复用现有 `StatusTelemetry` 压缩语义
-- 把 mirror 状态映射到现有 GUI 卡片
+- 把 mirror 状态映射到现有 GUI 卡片和恢复建议文案
 
 当前 ROS2 preview 不做：
 
