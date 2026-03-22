@@ -57,6 +57,12 @@ UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_tui.sh --preflight-only
 UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_tui.sh
 ```
 
+说明：
+
+- 键盘 teleop 当前按产品安全约束只接受一个运动键；组合运动键会被上位机忽略。
+- 这条约束的原因不是 UI 限制，而是为了避免组合运动带来的运动学歧义和瞬时电池/推进器负载尖峰。
+- 操作建议是“先松开当前运动键，再按下下一个运动键”，不要把 `W/A/Q/H/...` 这类运动键同时按住。
+
 #### Windows GUI preview
 
 ```powershell
