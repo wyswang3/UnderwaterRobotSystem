@@ -398,3 +398,49 @@
 - launcher 假串口 smoke：
   - `python3 apps/acquire/sensor_capture_launcher.py --data-root /tmp/uwnav_launcher_smoke --imu-port /tmp/not_an_imu --dvl-port /tmp/not_a_dvl --volt-port /tmp/not_a_volt --child-stat-every 0 --launcher-stat-every 0`
   - 结果：launcher manifest / summary 已生成，状态为 `child_failed`，并已记录各子进程退出码
+
+## 2026-03-23（本次会话收口：恢复本地提交并整理工作区）
+
+### 完成内容
+
+1. 恢复此前为了整理工作区而临时收起的本地改动。
+2. 按仓整理为可继续提交 / 推送的本地 Git 提交，而不是继续留在 `stash`。
+3. 清理 `ros2_bridge` 生成物与 Python `__pycache__` 干扰项，使主工作区重新回到干净状态。
+
+### 本次确认的本地提交
+
+- `Underwater-robot-navigation`
+  - 分支：`feature/nav-p0-contract-baseline`
+  - 本地提交：`3f12bfc`
+  - 说明：`Harden sensor capture tooling and add launcher`
+- `UnderwaterRobotSystem`
+  - 分支：`feature/docs-p0-baseline-alignment`
+  - 本地提交：`a60dccd`
+  - 说明：`Align baseline docs and add phase0 supervisor`
+
+### 本次额外回归验证
+
+- 导航仓：
+  - `python3 -m py_compile`：通过
+  - `python3 -m unittest discover -s tests -p 'test_*.py'`：通过（12 个用例）
+  - `sensor_capture_launcher.py` 假串口 smoke：重新执行，结果仍为 `child_failed`，符合预期 failure-path
+- 集成 / 文档仓：
+  - `python3 -m py_compile tools/supervisor/phase0_supervisor.py tools/supervisor/tests/test_phase0_supervisor.py`：通过
+  - `python3 -m unittest discover -s tools/supervisor/tests -p 'test_*.py'`：通过（4 个用例）
+  - `phase0_supervisor.py start --profile mock --detach -> status --json -> stop`：重新执行，通过
+
+### 工作区状态
+
+在补记本条日志前，以下 4 个主仓 `git status --short` 均为空：
+
+1. `Underwater-robot-navigation`
+2. `OrangePi_STM32_for_ROV`
+3. `UnderwaterRobotSystem`
+4. `UnderWaterRobotGCS`
+
+### 对下次继续的意义
+
+1. 当前已经不需要再从 `stash` 恢复状态。
+2. 下次可以直接从两个本地提交对应的分支继续推进。
+3. supervisor 与传感器工具链两条线都已经有可回放的最小验证基线。
+

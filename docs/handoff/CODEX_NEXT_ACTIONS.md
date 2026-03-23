@@ -141,3 +141,40 @@
 1. 在真实 IMU / DVL / Volt32 设备就绪后，优先用 `apps/acquire/sensor_capture_launcher.py` 做一轮整套 smoke。
 2. 先验证 launcher summary、各传感器 summary、以及 CSV 是否同时稳定落盘。
 3. 在没有新增需求前，不要把 launcher 膨胀成 supervisor 或统一日志平台。
+
+## 11. 下次启动前先确认的本地状态
+
+下次继续前，先确认以下两条本地提交就是当前接续基线：
+
+1. `Underwater-robot-navigation`
+   - 分支：`feature/nav-p0-contract-baseline`
+   - 提交：`3f12bfc`
+2. `UnderwaterRobotSystem`
+   - 分支：`feature/docs-p0-baseline-alignment`
+   - 提交：`a60dccd`
+
+若工作区仍保持干净，则优先直接在这两个分支上继续，不要回头找旧 `stash`。
+
+## 12. 下次继续的最小起步顺序
+
+建议按以下顺序接着做：
+
+1. 先读：
+   - `/home/wys/orangepi/AGENTS.md`
+   - `docs/handoff/CODEX_HANDOFF.md`
+   - `docs/handoff/CODEX_NEXT_ACTIONS.md`
+2. 再决定继续哪一条线：
+   - `supervisor` 线：优先真实 `bench` safe smoke
+   - `sensor tooling` 线：优先真实 IMU / DVL / Volt32 hardware-in-the-loop smoke
+3. 不管走哪条线，都先复用现有最小验证脚本，不要先扩框架：
+   - `python3 -m py_compile`
+   - targeted `unittest`
+   - `mock` / 假串口 smoke 或设备就绪环境下的真实 smoke
+
+## 13. 下次明确不要做的事
+
+1. 不要重新整理整个工作区历史。
+2. 不要把当前已落地的 launcher 扩成多功能 supervisor。
+3. 不要在没有真实设备 smoke 结果前提前抽三传感器公共大框架。
+4. 不要在没有新增证据前扩大 unified logging 改动面。
+

@@ -325,3 +325,42 @@ mock 回归结果：
 - launcher 只做进程编排，不改各传感器脚本内部采集逻辑。
 - 各传感器自己的 CSV / events / session summary 仍然各自独立落盘。
 - 若任一子脚本早退，launcher 会统一停掉剩余子脚本并将本次 run 标记为 `child_failed`。
+
+## 12. 2026-03-23 当前接续状态
+
+截至本次会话结束，当前有两条已经实际落地、且都完成过最小验证的工作线：
+
+1. `UnderwaterRobotSystem` 集成仓中的 Phase 0 薄 supervisor
+2. `Underwater-robot-navigation` 导航仓中的三传感器 Python 采集工具链防呆收口与总开关
+
+本次会话已确认的本地提交位置：
+
+- `Underwater-robot-navigation`
+  - 分支：`feature/nav-p0-contract-baseline`
+  - 最新本地提交：`3f12bfc`
+  - 提交说明：`Harden sensor capture tooling and add launcher`
+- `UnderwaterRobotSystem`
+  - 分支：`feature/docs-p0-baseline-alignment`
+  - 最新本地提交：`a60dccd`
+  - 提交说明：`Align baseline docs and add phase0 supervisor`
+
+截至补记本段前，4 个主仓工作区都已经整理为干净状态：
+
+1. `Underwater-robot-navigation`
+2. `OrangePi_STM32_for_ROV`
+3. `UnderwaterRobotSystem`
+4. `UnderWaterRobotGCS`
+
+下次继续时，建议不要再从 `stash` 或零散临时目录找状态，而是直接从上述两个本地提交和 handoff 文档接续。
+
+下次最稳的继续顺序：
+
+1. 若继续 supervisor：
+   - 先在设备就绪环境重跑真实 `bench` safe smoke
+   - 继续保持 `--pwm-dummy`
+   - 只修 Phase 0 supervisor 自己暴露的问题
+2. 若继续导航侧传感器工具链：
+   - 先用真实 IMU / DVL / Volt32 设备跑一轮 hardware-in-the-loop smoke
+   - 优先核对 launcher summary、各传感器 session summary 与 CSV 是否一致
+   - 不要把当前 launcher 膨胀成 supervisor 或统一日志平台
+
