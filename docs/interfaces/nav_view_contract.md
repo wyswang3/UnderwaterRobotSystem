@@ -1,5 +1,11 @@
 # Nav View Contract
 
+## 文档状态
+
+- 状态：Authoritative
+- 说明：当前生效的系统级基线文档。
+
+
 ## 适用范围
 
 当前 `NavStateView` 来源于：

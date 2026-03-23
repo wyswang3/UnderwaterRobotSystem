@@ -1,5 +1,11 @@
 # Replay Injection Guide
 
+## 文档状态
+
+- 状态：Authoritative
+- 说明：当前生效的系统级基线文档。
+
+
 ## 适用范围
 
 当前最小 replay 注入层级不是原始 IMU/DVL 帧，而是 `NavState`。

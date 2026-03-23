@@ -1,5 +1,11 @@
 # UI Windows Support Audit
 
+## 文档状态
+
+- 状态：Working draft
+- 说明：当前设计方向或阶段性方案已冻结，但尚未全部实施。
+
+
 ## 当前结论
 
 截至 2026-03-21，Windows 路径已经从“只有 TUI 诊断入口”前进到：

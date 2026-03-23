@@ -1,5 +1,11 @@
 # USB Reconnect Bench Plan
 
+## 文档状态
+
+- 状态：Authoritative
+- 说明：当前生效的系统级基线文档。
+
+
 ## 适用范围
 
 本文档定义当前 USB/by-id/udev 重连台架验证基线。

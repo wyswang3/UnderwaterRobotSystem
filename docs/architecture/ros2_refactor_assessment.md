@@ -1,5 +1,11 @@
 # ROS2 Refactor Assessment
 
+## 文档状态
+
+- 状态：Working draft
+- 说明：当前设计方向或阶段性方案已冻结，但尚未全部实施。
+
+
 ## 适用范围
 
 本文档基于 2026-03-21 当前工作区代码与现有基线文档，对 UnderwaterRobotSystem 的 ROS2 迁移适配性做一次收敛评估。

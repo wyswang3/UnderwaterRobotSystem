@@ -1,5 +1,11 @@
 # ROS2 Bridge Stage1 Plan
 
+## 文档状态
+
+- 状态：Working draft
+- 说明：当前设计方向或阶段性方案已冻结，但尚未全部实施。
+
+
 ## 适用范围
 
 本文档定义 UnderwaterRobotSystem 的 ROS2 外围桥接第一阶段基线。

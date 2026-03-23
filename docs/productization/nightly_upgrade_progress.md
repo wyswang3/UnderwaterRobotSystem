@@ -1,217 +1,189 @@
 # Nightly Upgrade Progress
 
+## 文档状态
+
+- 状态：Authoritative
+- 说明：记录当前阶段最新一轮的产品化 / 文档化进展摘要。
+
 ## 日期
 
-2026-03-21
+2026-03-23
 
 ## 当前目标
 
-本轮目标收敛为：在不触碰 authority 主链的前提下，把 ROS2 外围桥接从“只读 mirror 基础”推进到“advisory health monitor + GCS read-only preview source”，并正式建立会话恢复与交接文档基线。
+本轮目标已经从“Phase 0 薄 supervisor / launcher 原型落地”推进到“真实安全烟测准备 + 最小 operator 可操作性收口”，重点仍然是：
 
-本轮只做：
+1. 不触碰 authority 主链
+2. 优先让真实 `bench` safe smoke 有最小可复现入口
+3. 在环境不具备时，把 failure-path 诊断做清楚，而不是把失败留给黑盒进程输出
 
-1. 在控制仓继续沿用现有 `rov_msgs` / `rov_state_bridge` 边界。
-2. 新增 advisory health monitor 核心与可选 ROS2 node wrapper。
-3. 在 GCS 仓新增 ROS2 mirror -> `TelemetrySnapshot` 适配层和 preview source。
-4. 建立 `docs/productization/codex_handoff.md`，作为后续重启后的优先恢复入口。
-5. 保持控制、导航、状态传播、执行链完全不依赖 ROS2。
-6. 不进入 rosbag2、写回控制、故障恢复按钮回灌或完整 ROS2 runtime 交付。
+## 本轮完成项
 
-## 已完成项
+### 1. Phase 0 supervisor 的 preflight 已补强
 
-### 控制仓
+本轮新增的低风险检查包括：
 
-- 在 `rov_msgs/msg/` 新增 `HealthMonitorStatus.msg`。
-- 在 `rov_state_bridge` 包内新增：
-  - `health_monitor.py`
-  - `ros2_health_node.py`
-  - `tests/test_health_monitor.py`
-  - `tools/run_health_monitor_validation.py`
-- `HealthMonitorStatus` 和 `build_health_monitor_status()` 已建立在现有 mirror 字段之上。
-- advisory health monitor 已能输出：
-  - `severity`
-  - `summary`
-  - `recommended_action`
-  - `imu/dvl online/reconnecting/mismatch`
-  - `nav_valid/nav_stale/nav_degraded`
-  - `command_status` / `command_fault_code`
-- 该 monitor 明确只做外围摘要，不做安全裁决，不回灌核心链。
+- `/dev/shm` 可读写
+- 进程工作目录可访问
+- 关键配置文件可读性
+- `nav_daemon.yaml` 中设备节点可见性
+- `/dev/serial/by-id` 可见性提示
+- `gcs_server` 端口占用检查
 
-### GCS / UI 仓
+同时修复了 `preflight` CLI 的一个实际缺陷：
 
-- 新增 `src/urogcs/telemetry/ros2_mirror_adapter.py`。
-- 新增 `src/urogcs/telemetry/ros2_mirror_source.py`。
-- GUI 已支持 `--telemetry-source ros2` preview 入口。
-- GUI preview path 复用现有：
-  - `StatusTelemetry`
-  - `TelemetrySnapshot`
-  - `ui_viewmodels`
-  - `overview_presenter`
-- 没有在 GUI 中重写新的协议或状态机。
-- 缺少 `rclpy` 时，ROS2 preview 会失败但不崩溃。
+- `cmd_preflight` 中未定义变量导致的 `NameError`
 
-### 导航仓
+### 2. 真实 `bench` 环境已做安全烟测尝试
 
-- 本轮无代码改动。
-- 继续复用既有 `NavState` / `NavStateView` 契约和导航主链作为只读源。
+本轮已实际执行：
 
-### 文档仓
+- `preflight --profile bench`
+- `start --profile bench --detach`
+- `status --json`
 
-- 更新 `rov_msgs_mapping.md`，补充 `HealthMonitorStatus`。
-- 更新 `ros2_bridge_validation_guide.md`，补控制仓/GCS 仓新的验证路径。
-- 更新 `telemetry_ui_contract.md`，补 GCS ROS2 preview 语义边界。
-- 更新 `gcs_ui_operator_guide.md`，补 ROS2 preview 启动方式与边界。
-- 新增 `codex_handoff.md`，作为后续会话恢复与交接摘要。
-- 更新本进展文档。
+当前环境结论（2026-03-23）：
 
-## 修改的仓库 / 文件
+- `/dev/ttyUSB0` 不存在
+- `/dev/ttyACM0` 不存在
+- `/dev/serial/by-id` 不存在
 
-### 控制仓
+因此本轮真实 `bench` safe smoke 被 preflight 阻塞，没有启动 authority 进程。这是符合当前安全边界的结果。
 
-仓库：`/home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV`
+### 3. failure-path 运行文件已验证
 
-本轮新增 / 更新的关键文件：
+即使真实 `bench` 被 preflight 阻塞，本轮也已验证四个运行文件仍会正确生成：
 
-- `ros2_bridge/rov_msgs/msg/HealthMonitorStatus.msg`
-- `ros2_bridge/rov_state_bridge/src/rov_state_bridge/models.py`
-- `ros2_bridge/rov_state_bridge/src/rov_state_bridge/health_monitor.py`
-- `ros2_bridge/rov_state_bridge/src/rov_state_bridge/ros2_health_node.py`
-- `ros2_bridge/rov_state_bridge/tests/test_health_monitor.py`
-- `ros2_bridge/rov_state_bridge/tools/run_health_monitor_validation.py`
+- `run_manifest.json`
+- `process_status.json`
+- `last_fault_summary.txt`
+- `supervisor_events.csv`
 
-### GCS / UI 仓
+当前 failure-path 已确认能稳定表达：
 
-仓库：`/home/wys/orangepi/UnderWaterRobotGCS`
+- 这次 run 的 profile 和路径
+- 当前 supervisor 状态
+- 最近一次故障摘要
+- 每项 preflight 检查的通过/失败时间线
 
-本轮新增 / 更新的关键文件：
+### 4. 最小 operator runbook 已新增
 
-- `src/urogcs/telemetry/ros2_mirror_adapter.py`
-- `src/urogcs/telemetry/ros2_mirror_source.py`
-- `src/urogcs/app/gui/gui_env.py`
-- `src/urogcs/app/gui_main.py`
-- `src/urogcs/app/gui/main_window.py`
-- `tests/test_ros2_mirror_adapter.py`
-- `tests/test_ros2_mirror_source.py`
+本轮新增：
 
-### 导航仓
+- `docs/runbook/supervisor_phase0_operator_guide.md`
 
-仓库：`/home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation`
+当前已经说明：
 
-- 本轮无代码改动。
+- 如何 `preflight`
+- 如何 `start`
+- 如何 `status`
+- 如何 `stop`
+- 四个运行文件分别看什么
+- 常见失败时先看哪里
 
-### 文档仓
+### 5. mock 生命周期已做回归
 
-仓库：`/home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem`
+本轮再次完成：
 
-本轮更新：
+- `start --profile mock --detach`
+- `status --json`
+- `stop`
 
-- `docs/interfaces/rov_msgs_mapping.md`
-- `docs/runbook/ros2_bridge_validation_guide.md`
-- `docs/interfaces/telemetry_ui_contract.md`
-- `docs/runbook/gcs_ui_operator_guide.md`
-- `docs/productization/nightly_upgrade_progress.md`
-- `docs/productization/codex_handoff.md`
+并确认 `supervisor_events.csv` 中的逆序退出记录仍为：
 
-## 编译结果
+1. `gcs_server`
+2. `pwm_control_program`
+3. `nav_viewd`
+4. `uwnav_navd`
 
-### 控制仓
+## 本轮验证方式
 
-- `python3 -m py_compile`：通过
-  - `ros2_bridge/rov_state_bridge/src/rov_state_bridge/*.py`
-  - `ros2_bridge/rov_state_bridge/tests/test_*.py`
-  - `ros2_bridge/rov_state_bridge/tools/*.py`
+已执行：
 
-### GCS / UI 仓
+1. `python3 -m py_compile`
+2. `python3 -m unittest discover -s tools/supervisor/tests -p 'test_*.py'`
+3. `python3 tools/supervisor/phase0_supervisor.py preflight --profile bench --run-root /tmp/phase0_supervisor_bench_smoke`
+4. `python3 tools/supervisor/phase0_supervisor.py start --profile bench --detach --run-root /tmp/phase0_supervisor_bench_smoke ...`
+5. `python3 tools/supervisor/phase0_supervisor.py status --run-root /tmp/phase0_supervisor_bench_smoke --json`
+6. 手动 mock smoke：
+   - `start --profile mock --detach`
+   - `status --json`
+   - `stop --timeout-s 5.0`
 
-- `python3 -m py_compile`：通过
-  - `src/urogcs/telemetry/ros2_mirror_adapter.py`
-  - `src/urogcs/telemetry/ros2_mirror_source.py`
-  - `src/urogcs/app/gui/gui_env.py`
-  - `src/urogcs/app/gui/main_window.py`
-  - `src/urogcs/app/gui_main.py`
-  - 新增测试
+未执行：
 
-### ROS2 工具链状态
-
-- 当前工作机仍缺少 `ros2` / `colcon` / `rclpy` / 生成后的 `rov_msgs` Python 包。
-- 因此本轮没有做真实 ROS2 graph 编译、topic 回环或 rosbag2 验证。
-
-## 测试结果
-
-### 控制仓
-
-- `cd /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/ros2_bridge/rov_state_bridge && PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`：通过
-  - 当前共 `12` 个 Python 单测，结果 `OK`
-- `cd /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/ros2_bridge/rov_state_bridge && PYTHONPATH=src python3 tools/run_health_monitor_validation.py`：通过
-- 既有 `run_sample_bridge_validation.py` 仍通过。
-
-### GCS / UI 仓
-
-- `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m unittest discover -s tests -p 'test_*.py'`：通过
-  - 当前共 `15` 个 Python 单测，结果 `OK`
-- `QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m urogcs.app.gui_main --no-auto-connect --quit-after-ms 200`：通过
-- `QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m urogcs.app.gui_main --no-auto-connect --telemetry-source ros2 --quit-after-ms 200`：通过
-- `QT_QPA_PLATFORM=offscreen PYTHONPATH=src python3 -m urogcs.app.gui_main --telemetry-source ros2 --quit-after-ms 200`：通过
-  - 缺少 ROS2 runtime 时失败但不崩溃
-
-## 更新的文档
-
-本轮更新后的参考文档包括：
-
-- `docs/interfaces/rov_msgs_mapping.md`
-- `docs/runbook/ros2_bridge_validation_guide.md`
-- `docs/interfaces/telemetry_ui_contract.md`
-- `docs/runbook/gcs_ui_operator_guide.md`
-- `docs/productization/nightly_upgrade_progress.md`
-- `docs/productization/codex_handoff.md`
-
-## 本地 Git 收口情况
-
-### 控制仓
-
-- 路径：`/home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV`
-- 分支：`feature/control-p0-status-telemetry-baseline`
-- 本轮源码提交：`8e535ac` `Add advisory ROS2 health monitor preview`
-- 工作区：干净
-
-### GCS / UI 仓
-
-- 路径：`/home/wys/orangepi/UnderWaterRobotGCS`
-- 分支：`feature/gcs-p0-status-telemetry-alignment`
-- 本轮源码提交：`559bf19` `Add ROS2 mirror preview source for GUI`
-- 工作区：干净
-
-### 导航仓
-
-- 路径：`/home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation`
-- 分支：`feature/nav-p0-contract-baseline`
-- 当前参考提交：`2329255` `Refresh navigation readmes for developers`
-- 工作区：干净
-
-### 文档仓
-
-- 路径：`/home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem`
-- 分支：`feature/docs-p0-baseline-alignment`
-- 当前稳定参考提交：`bf077a2` `Document ROS2 preview health monitor and GCS source`
-- 本轮 `nightly` / `handoff` 更新已纳入本次文档改动
-- 工作区目标：干净
+- 设备就绪条件下的真实 `bench` authority 进程启动
+- 真机验证
+- ROS2 graph / rosbag2 验证
+- replay / incident bundle 运行时验证
 
 ## 当前阻塞点
 
-- 本机没有 ROS2 toolchain，不能验证真实 `rclpy` 订阅、generated msg、topic graph 和 rosbag2。
-- 当前 `/rov/telemetry` preview 路径没有独立 transport session topic，因此 `session_established` / `link_alive` 只能从 `system.session_state` 做保守推断。
-- health monitor 目前只做到 advisory summary，还没有真正 ROS2 graph 下的发布回环验证。
+1. 当前主机没有 `bench` 所需设备节点。
+2. 真实 `bench` 的 authority 进程启停仍待在设备就绪环境验证。
+3. 当前还没有 stdout / stderr 收口。
 
-## 剩余风险
+## 下一步最建议做的事
 
-- 不能把当前 preview 描述成“核心系统已完成 ROS2 集成”。
-- 不能把 GCS ROS2 preview 描述成可替代 UDP teleop 主路径。
-- 不能把 `HealthMonitorStatus` 描述成安全 authority 或恢复执行入口。
-- `rosbag2`、故障恢复按钮、完整 UI backend 仍未完成。
+1. 在真实 IMU / DVL 设备就绪后，优先重跑一组完整 `bench` safe smoke。
+2. 继续保持 `--pwm-dummy`，不要跨出 Phase 0 supervisor 边界。
+3. 如果真实 `bench` 启动成功，再只修 supervisor 自己暴露的问题。
+4. 在 Phase 0 稳定前，不要提前展开三传感器工具链和更大范围统一日志。
 
-## 下一步建议
 
-1. 在有 ROS2 toolchain 的 Linux 主机上补 generated msg、`rclpy` topic 回环和 `/rov/health_monitor` 真发布验证。
-2. 若要继续 UI backend，优先补独立 transport/session mirror，而不是直接扩大控制入口。
-3. 若要做 rosbag2，只先录只读 mirror topic，不引入任何写回路径。
-4. 故障恢复按钮若后续要做，只能接现有安全入口，不得绕过 `gcs_server` / `ControlIntent` authority。
+## 2026-03-23 追加进展：导航侧传感器采集工具链防呆收口
+
+本轮在 `Underwater-robot-navigation` 落地了低风险 Python 工具链补强，不触碰 `uwnav_navd` authority 主线。
+
+### 已落地
+
+1. 新增统一 session 诊断：每次采集都会产出 `*_events_*.csv` 与 `*_session_summary_*.json`。
+2. DVL 采集链现在能明确表达 `open_failed` / `no_parsed_frames` / `empty_capture`。
+3. Volt32 采集链现在能区分不同数据类型：
+   - 数值 + 单位
+   - 非数字值
+   - 异常单位
+   - 超范围通道
+4. IMU failure-path 已修复：串口打开失败时不再后台无限刷异常。
+
+### 本轮验证
+
+已执行：
+
+- `python3 -m py_compile`
+- `python3 -m unittest discover -s tests -p 'test_*.py'`
+- DVL / IMU / Volt32 缺设备失败路径 smoke 各 1 轮，均已生成 session summary
+
+当前仍未执行：
+
+- 真实硬件在环 smoke
+- DVL 有效样本解析质量验证
+- 统一日志扩面
+
+
+## 2026-03-23 追加进展：DVL 真实样本已替代空样本判断
+
+本轮新增拿到真实 DVL raw 样本：
+
+- `/home/wys/orangepi/2026-01-26/dvl_raw_lines_20260126_104848.csv`
+
+基于这份样本，已完成两项低风险收口：
+
+1. `protocol.py` 只按真实数据帧起点切块，不再把 `CZ/CS` 回显和噪声切成伪帧。
+2. `io.py` 的 `DVLData` 映射层只放行 `BI/BS/BE/BD/WI/WS/WE/WD`，不再让 `SA/TS` 和噪声污染 parsed/TB。
+
+当前验证已通过：
+
+- DVL 协议相关 `py_compile`
+- 全部导航仓 Python 单测（9 个用例）
+
+
+## 2026-03-23 追加进展：传感器总开关已可用
+
+本轮新增 `apps/acquire/sensor_capture_launcher.py`，已经可以一条命令统一拉起 IMU / DVL / Volt32 三套采集脚本。
+
+当前已验证：
+
+- launcher 自己的 manifest / events / summary 会生成
+- 任一子脚本早退时，launcher 会统一收口剩余子脚本
+- 不侵入各传感器脚本内部逻辑

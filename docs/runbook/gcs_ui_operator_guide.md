@@ -1,5 +1,11 @@
 # GCS UI Operator Guide
 
+## 文档状态
+
+- 状态：Authoritative
+- 说明：当前生效的系统级基线文档。
+
+
 ## 适用范围
 
 本文档描述 2026-03-21 当前基线下的 GCS UI 使用方式。
@@ -20,8 +26,8 @@
 
 1. `uwnav_navd`
 2. `nav_viewd`
-3. `gcs_server`
-4. `pwm_control_program`
+3. `pwm_control_program`
+4. `gcs_server`
 5. 如需外围 bridge，再启动 `rov_state_bridge` / `rov_health_monitor`
 
 ### 操作员侧
