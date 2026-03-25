@@ -87,6 +87,7 @@
 
 - `docs/architecture/control_nav_integration_plan.md`
 - `docs/architecture/sensor_toolchain_refactor_plan.md`
+- `docs/architecture/logging_full_chain_audit.md`
 - `docs/interfaces/logging_contract.md`
 - `docs/architecture/ros2_bridge_stage1_plan.md`
 - `docs/architecture/ros2_refactor_assessment.md`

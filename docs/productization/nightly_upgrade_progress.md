@@ -7,7 +7,7 @@
 
 ## 日期
 
-2026-03-23
+2026-03-25
 
 ## 当前目标
 
@@ -187,3 +187,47 @@
 - launcher 自己的 manifest / events / summary 会生成
 - 任一子脚本早退时，launcher 会统一收口剩余子脚本
 - 不侵入各传感器脚本内部逻辑
+
+
+## 2026-03-25 追加进展：日志 Phase B 第一批 C++ 低频结构化事件已落地
+
+本轮开始把统一日志从 docs-only 设计推进到 authority-safe 的最小代码落地，但仍然严格限制在低频事件层。
+
+### 已落地
+
+1. `uwnav_navd` 新增 `nav_events.csv`，先覆盖：
+   - `device_bind_state_changed`
+   - `serial_open_failed`
+   - `sensor_update_rejected`
+   - `nav_publish_state_changed`
+2. `nav_viewd` 新增 `nav_events.csv`，先覆盖：
+   - `nav_view_decision_changed`
+   - `nav_view_publish_failed`
+   - `nav_view_source_recovered`
+3. `ControlGuard` 通过事件回调 + 进程边界写盘，新增 `control_events.csv`，先覆盖：
+   - `guard_reject`
+   - `guard_failsafe_entered`
+   - `guard_failsafe_cleared`
+   - `guard_nav_gating_changed`
+4. 保持高频日志不动：
+   - `nav_timing.bin`
+   - `nav_state.bin`
+   - `control_loop_*.csv`
+   - `telemetry_timeline_*.csv`
+
+### 本轮验证
+
+已执行：
+
+- `cmake --build .../nav_core/build --target uwnav_navd`
+- `cmake --build .../OrangePi_STM32_for_ROV/build --target nav_viewd pwm_control_program test_v1_closed_loop test_nav_view_policy`
+- `.../build/bin/test_v1_closed_loop`
+- `.../build/bin/test_nav_view_policy`
+- `.../nav_core/build/test_serial_reconnect_integration`
+
+当前仍未执行：
+
+- 真机 / 实机 smoke
+- supervisor manifest 与 incident bundle 自动整合
+- `gcs_server` 的统一 `comm_events.csv`
+- `pwm_control_program` 其余 controller / allocator / PWM 边界事件

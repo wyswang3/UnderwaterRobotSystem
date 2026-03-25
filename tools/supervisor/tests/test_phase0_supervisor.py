@@ -88,6 +88,7 @@ class Phase0SupervisorTest(unittest.TestCase):
             ]
             start_res = subprocess.run(start_cmd, capture_output=True, text=True, check=False)
             self.assertEqual(0, start_res.returncode, start_res.stderr or start_res.stdout)
+            self.assertIn('child_output=capture', start_res.stdout)
 
             manifest_path = self.wait_for_manifest(run_root)
             run_dir = manifest_path.parent
@@ -98,6 +99,15 @@ class Phase0SupervisorTest(unittest.TestCase):
             self.assertTrue(status_path.exists())
             self.assertTrue(fault_path.exists())
             self.assertTrue(events_path.exists())
+
+            manifest_data = json.loads(manifest_path.read_text(encoding='utf-8'))
+            self.assertEqual('capture', manifest_data['child_output_mode'])
+            self.assertTrue((run_dir / 'child_logs').exists())
+            for proc in manifest_data['processes']:
+                self.assertTrue(proc['log_files']['stdout'].endswith('stdout.log'))
+                self.assertTrue(proc['log_files']['stderr'].endswith('stderr.log'))
+                self.assertTrue(Path(proc['log_files']['stdout']).exists())
+                self.assertTrue(Path(proc['log_files']['stderr']).exists())
 
             status_cmd = [
                 sys.executable,
@@ -110,6 +120,7 @@ class Phase0SupervisorTest(unittest.TestCase):
             self.assertEqual(0, status_res.returncode, status_res.stderr)
             status_data = json.loads(status_res.stdout)
             self.assertEqual('mock', status_data['profile'])
+            self.assertEqual('capture', status_data['child_output_mode'])
 
             stop_cmd = [
                 sys.executable,

@@ -444,3 +444,53 @@
 2. 下次可以直接从两个本地提交对应的分支继续推进。
 3. supervisor 与传感器工具链两条线都已经有可回放的最小验证基线。
 
+
+
+## 2026-03-25（日志 Phase B 第一批 C++ 低频事件落地）
+
+### 完成内容
+
+- 在 `Underwater-robot-navigation` 的 `uwnav_navd` 落地最小 `nav_events.csv` 写入路径。
+- 新增 `uwnav_navd` 第一批低频事件：
+  - `device_bind_state_changed`
+  - `serial_open_failed`
+  - `sensor_update_rejected`
+  - `nav_publish_state_changed`
+- 在 `OrangePi_STM32_for_ROV` 的 `nav_viewd` 落地最小 `nav_events.csv` 写入路径。
+- 新增 `nav_viewd` 第一批低频事件：
+  - `nav_view_decision_changed`
+  - `nav_view_publish_failed`
+  - `nav_view_source_recovered`
+- 在 `ControlGuard` 增加低频事件回调，并在 `control_loop_run.cpp` 进程边界落地 `control_events.csv`。
+- 新增 `ControlGuard` 第一批低频事件：
+  - `guard_reject`
+  - `guard_failsafe_entered`
+  - `guard_failsafe_cleared`
+  - `guard_nav_gating_changed`
+- 补 `test_v1_closed_loop` 最小事件回调回归。
+
+### 验证结果
+
+- `cmake --build .../nav_core/build --target uwnav_navd`：通过
+- `cmake --build .../OrangePi_STM32_for_ROV/build --target nav_viewd pwm_control_program test_v1_closed_loop test_nav_view_policy`：通过
+- `.../build/bin/test_v1_closed_loop`：通过
+- `.../build/bin/test_nav_view_policy`：通过
+- `.../nav_core/build/test_serial_reconnect_integration`：通过
+
+### 阻塞点
+
+1. `pwm_control_program` 其余 controller / allocator / PWM 边界事件还没补进 `control_events.csv`。
+2. `gcs_server` 的 `comm_events.csv` 仍未落地。
+3. 新的 `nav_events.csv` / `control_events.csv` 还没有接入 supervisor manifest 与 incident bundle。
+4. 真实 `bench` / 实机环境尚未验证新的事件日志收口。
+
+### 文档更新
+
+- 更新 `logging_full_chain_audit.md`：标明 Phase B 第一批已落地范围与剩余缺口。
+- 更新 `logging_contract.md`：对齐已落地事件名、字段和 `nav_events.csv` / `control_events.csv` 最小口径。
+- 更新 handoff / next actions / nightly，避免继续沿用“不要改 ControlGuard”这类已过期限制。
+
+### Git 收口
+
+- `Underwater-robot-navigation`、`OrangePi_STM32_for_ROV`、`UnderwaterRobotSystem` 均有未提交本地改动
+- 未执行 `git push`

@@ -16,7 +16,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import BinaryIO, List, Optional, Sequence
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE_ROOT = REPO_ROOT.parent
@@ -31,6 +31,11 @@ STATE_RETRYING = 'retrying'
 STATE_STOPPED = 'stopped'
 STATE_FAILED = 'failed'
 STATE_STOPPING = 'stopping'
+
+OUTPUT_INHERIT = 'inherit'
+OUTPUT_CAPTURE = 'capture'
+OUTPUT_QUIET = 'quiet'
+DEFAULT_FAULT_TAIL_LINES = 20
 
 EVENT_HEADER = [
     'mono_ns',
@@ -90,7 +95,13 @@ class ProcessRuntime:
     exit_code: Optional[int] = None
     restart_count: int = 0
     last_failure_reason: str = ''
+    stdout_log_path: Optional[Path] = None
+    stderr_log_path: Optional[Path] = None
+    stdout_tail: str = ''
+    stderr_tail: str = ''
     process: Optional[subprocess.Popen] = field(default=None, repr=False)
+    stdout_handle: Optional[BinaryIO] = field(default=None, repr=False)
+    stderr_handle: Optional[BinaryIO] = field(default=None, repr=False)
 
     def to_status_dict(self) -> dict:
         return {
@@ -105,6 +116,14 @@ class ProcessRuntime:
             'last_failure_reason': self.last_failure_reason,
             'cwd': str(self.spec.cwd),
             'command': list(self.spec.command),
+            'log_files': {
+                'stdout': str(self.stdout_log_path) if self.stdout_log_path is not None else None,
+                'stderr': str(self.stderr_log_path) if self.stderr_log_path is not None else None,
+            },
+            'output_excerpt': {
+                'stdout_tail': self.stdout_tail or None,
+                'stderr_tail': self.stderr_tail or None,
+            },
         }
 
 
@@ -114,9 +133,10 @@ class RunContext:
     run_id: str
     run_root: Path
     run_dir: Path
-    quiet_children: bool
+    child_output_mode: str
     poll_interval_s: float
     stop_timeout_s: float
+    fault_tail_lines: int
     processes: List[ProcessRuntime]
     supervisor_state: str = STATE_STARTING
     mono_start_ns: int = field(default_factory=time.monotonic_ns)
@@ -124,6 +144,8 @@ class RunContext:
     last_fault_event: str = 'none'
     last_fault_message: str = 'no fault recorded'
     last_fault_wall_time: str = ''
+    last_fault_process_name: str = ''
+    last_fault_details: dict = field(default_factory=dict)
 
     @property
     def supervisor_pid(self) -> int:
@@ -144,6 +166,10 @@ class RunContext:
     @property
     def events_path(self) -> Path:
         return self.run_dir / 'supervisor_events.csv'
+
+    @property
+    def child_logs_dir(self) -> Path:
+        return self.run_dir / 'child_logs'
 
 
 _STOP_REQUESTED = False
@@ -189,6 +215,32 @@ def build_run_id() -> str:
 def build_run_dir(run_root: Path, run_id: str) -> Path:
     date_dir = datetime.now().strftime('%Y-%m-%d')
     return run_root / date_dir / run_id
+
+
+def normalize_child_output_mode(child_output: Optional[str], quiet_children: bool, *, default_mode: str) -> str:
+    if child_output:
+        return child_output
+    if quiet_children:
+        return OUTPUT_QUIET
+    return default_mode
+
+
+def read_text_tail(path: Optional[Path], max_lines: int, *, max_bytes: int = 32 * 1024) -> str:
+    if path is None or max_lines <= 0 or not path.exists():
+        return ''
+
+    try:
+        with path.open('rb') as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - max_bytes), os.SEEK_SET)
+            data = handle.read()
+    except OSError:
+        return ''
+
+    text = data.decode('utf-8', errors='replace')
+    lines = text.splitlines()
+    return '\n'.join(lines[-max_lines:]).strip()
 
 
 def discover_latest_run_dir(run_root: Path) -> Optional[Path]:
@@ -517,6 +569,10 @@ def build_manifest(ctx: RunContext) -> dict:
                 'cwd': str(runtime.spec.cwd),
                 'command': list(runtime.spec.command),
                 'required_paths': [str(path) for path in runtime.spec.required_paths],
+                'log_files': {
+                    'stdout': str(runtime.stdout_log_path) if runtime.stdout_log_path is not None else None,
+                    'stderr': str(runtime.stderr_log_path) if runtime.stderr_log_path is not None else None,
+                },
             }
         )
 
@@ -529,14 +585,19 @@ def build_manifest(ctx: RunContext) -> dict:
         'mono_start_ns': ctx.mono_start_ns,
         'supervisor_pid': ctx.supervisor_pid,
         'supervisor_state': ctx.supervisor_state,
+        'child_output_mode': ctx.child_output_mode,
+        'fault_tail_lines': ctx.fault_tail_lines,
         'run_root': str(ctx.run_root),
         'run_dir': str(ctx.run_dir),
+        'child_logs_dir': str(ctx.child_logs_dir),
         'run_files': {
             'run_manifest': str(ctx.manifest_path),
             'process_status': str(ctx.status_path),
             'last_fault_summary': str(ctx.fault_path),
             'supervisor_events': str(ctx.events_path),
         },
+        'last_fault_event': ctx.last_fault_event,
+        'last_fault_process_name': ctx.last_fault_process_name or None,
         'process_order': [runtime.spec.name for runtime in ctx.processes],
         'shutdown_order': [runtime.spec.name for runtime in reversed(ctx.processes)],
         'processes': process_entries,
@@ -553,9 +614,14 @@ def build_process_status(ctx: RunContext) -> dict:
         'profile': ctx.profile.name,
         'supervisor_pid': ctx.supervisor_pid,
         'supervisor_state': ctx.supervisor_state,
+        'child_output_mode': ctx.child_output_mode,
+        'fault_tail_lines': ctx.fault_tail_lines,
+        'child_logs_dir': str(ctx.child_logs_dir),
         'updated_wall_time': wall_time_now(),
         'last_fault_event': ctx.last_fault_event,
         'last_fault_message': ctx.last_fault_message,
+        'last_fault_process_name': ctx.last_fault_process_name or None,
+        'last_fault_details': ctx.last_fault_details,
         'processes': [runtime.to_status_dict() for runtime in ctx.processes],
     }
 
@@ -565,23 +631,49 @@ def write_process_status(ctx: RunContext) -> None:
 
 
 def write_last_fault_summary(ctx: RunContext) -> None:
-    text = '\n'.join(
-        [
-            f'run_id={ctx.run_id}',
-            f'updated_wall_time={ctx.last_fault_wall_time or wall_time_now()}',
-            f'supervisor_state={ctx.supervisor_state}',
-            f'event={ctx.last_fault_event}',
-            f'message={ctx.last_fault_message}',
-            '',
-        ]
-    )
-    safe_write_text(ctx.fault_path, text)
+    details = dict(ctx.last_fault_details)
+    lines = [
+        f'run_id={ctx.run_id}',
+        f'updated_wall_time={ctx.last_fault_wall_time or wall_time_now()}',
+        f'supervisor_state={ctx.supervisor_state}',
+        f'event={ctx.last_fault_event}',
+        f'process_name={ctx.last_fault_process_name or ""}',
+        f'message={ctx.last_fault_message}',
+    ]
+
+    stdout_log = details.get('stdout_log')
+    stderr_log = details.get('stderr_log')
+    if stdout_log:
+        lines.append(f'stdout_log={stdout_log}')
+    if stderr_log:
+        lines.append(f'stderr_log={stderr_log}')
+    if details:
+        lines.append(f'detail_json={json.dumps(details, ensure_ascii=False, sort_keys=True)}')
+    lines.append('')
+
+    stdout_tail = details.get('stdout_tail')
+    stderr_tail = details.get('stderr_tail')
+    if stdout_tail:
+        lines.extend(['[stdout_tail]', stdout_tail, ''])
+    if stderr_tail:
+        lines.extend(['[stderr_tail]', stderr_tail, ''])
+
+    safe_write_text(ctx.fault_path, '\n'.join(lines))
 
 
-def update_last_fault(ctx: RunContext, event: str, message: str) -> None:
+def update_last_fault(
+    ctx: RunContext,
+    event: str,
+    message: str,
+    *,
+    process_name: str = '',
+    details: Optional[dict] = None,
+) -> None:
     ctx.last_fault_event = event
     ctx.last_fault_message = message
     ctx.last_fault_wall_time = wall_time_now()
+    ctx.last_fault_process_name = process_name
+    ctx.last_fault_details = dict(details or {})
     write_last_fault_summary(ctx)
     write_process_status(ctx)
     write_manifest(ctx)
@@ -616,9 +708,48 @@ def log_event(
         str(restart_count),
     ]
     append_event_row(ctx.events_path, row)
-    if not ctx.quiet_children:
+    if ctx.child_output_mode != OUTPUT_QUIET:
         prefix = level.upper().ljust(5)
         print(f'[{prefix}] {event}: {message}')
+
+
+def close_process_output_handles(runtime: ProcessRuntime) -> None:
+    for handle in (runtime.stdout_handle, runtime.stderr_handle):
+        if handle is None:
+            continue
+        try:
+            handle.flush()
+        except OSError:
+            pass
+        try:
+            handle.close()
+        except OSError:
+            pass
+    runtime.stdout_handle = None
+    runtime.stderr_handle = None
+
+
+def snapshot_process_output(runtime: ProcessRuntime, tail_lines: int) -> dict:
+    for handle in (runtime.stdout_handle, runtime.stderr_handle):
+        if handle is not None:
+            try:
+                handle.flush()
+            except OSError:
+                pass
+
+    runtime.stdout_tail = read_text_tail(runtime.stdout_log_path, tail_lines)
+    runtime.stderr_tail = read_text_tail(runtime.stderr_log_path, tail_lines)
+
+    details = {}
+    if runtime.stdout_log_path is not None:
+        details['stdout_log'] = str(runtime.stdout_log_path)
+    if runtime.stderr_log_path is not None:
+        details['stderr_log'] = str(runtime.stderr_log_path)
+    if runtime.stdout_tail:
+        details['stdout_tail'] = runtime.stdout_tail
+    if runtime.stderr_tail:
+        details['stderr_tail'] = runtime.stderr_tail
+    return details
 
 
 def install_signal_handlers() -> None:
@@ -631,9 +762,29 @@ def install_signal_handlers() -> None:
     signal.signal(signal.SIGTERM, _handle_signal)
 
 
-def spawn_process(runtime: ProcessRuntime, quiet_children: bool) -> subprocess.Popen:
-    stdout = subprocess.DEVNULL if quiet_children else None
-    stderr = subprocess.DEVNULL if quiet_children else None
+def spawn_process(ctx: RunContext, runtime: ProcessRuntime) -> subprocess.Popen:
+    close_process_output_handles(runtime)
+    runtime.stdout_tail = ''
+    runtime.stderr_tail = ''
+
+    stdout = None
+    stderr = None
+    if ctx.child_output_mode == OUTPUT_QUIET:
+        stdout = subprocess.DEVNULL
+        stderr = subprocess.DEVNULL
+    elif ctx.child_output_mode == OUTPUT_CAPTURE:
+        process_dir = ctx.child_logs_dir / runtime.spec.name
+        process_dir.mkdir(parents=True, exist_ok=True)
+        runtime.stdout_log_path = process_dir / 'stdout.log'
+        runtime.stderr_log_path = process_dir / 'stderr.log'
+        runtime.stdout_handle = runtime.stdout_log_path.open('ab')
+        runtime.stderr_handle = runtime.stderr_log_path.open('ab')
+        stdout = runtime.stdout_handle
+        stderr = runtime.stderr_handle
+    else:
+        runtime.stdout_log_path = None
+        runtime.stderr_log_path = None
+
     return subprocess.Popen(
         list(runtime.spec.command),
         cwd=str(runtime.spec.cwd),
@@ -646,6 +797,11 @@ def spawn_process(runtime: ProcessRuntime, quiet_children: bool) -> subprocess.P
 def note_process_exit(ctx: RunContext, runtime: ProcessRuntime, exit_code: int, *, expected_stop: bool) -> None:
     runtime.exit_code = exit_code
     runtime.stop_wall_time = wall_time_now()
+
+    output_details = {}
+    if not expected_stop and exit_code != 0:
+        output_details = snapshot_process_output(runtime, ctx.fault_tail_lines)
+    close_process_output_handles(runtime)
 
     if expected_stop or exit_code == 0:
         runtime.state = STATE_STOPPED
@@ -678,7 +834,13 @@ def note_process_exit(ctx: RunContext, runtime: ProcessRuntime, exit_code: int, 
             exit_code=exit_code,
             restart_count=runtime.restart_count,
         )
-        update_last_fault(ctx, 'process_stopped', message)
+        update_last_fault(
+            ctx,
+            'process_stopped',
+            message,
+            process_name=runtime.spec.name,
+            details=output_details,
+        )
 
     write_process_status(ctx)
     write_manifest(ctx)
@@ -776,21 +938,44 @@ def shutdown_process(ctx: RunContext, runtime: ProcessRuntime, timeout_s: float)
     runtime.last_failure_reason = 'stop_timeout'
     write_process_status(ctx)
     write_manifest(ctx)
-    update_last_fault(ctx, 'process_killed', f'{runtime.spec.name} could not be stopped cleanly')
+    update_last_fault(
+        ctx,
+        'process_killed',
+        f'{runtime.spec.name} could not be stopped cleanly',
+        process_name=runtime.spec.name,
+        details=snapshot_process_output(runtime, ctx.fault_tail_lines),
+    )
 
 
-def init_run_context(profile: Profile, run_root: Path, run_dir: Path, quiet_children: bool, poll_interval_s: float, stop_timeout_s: float) -> RunContext:
+def init_run_context(
+    profile: Profile,
+    run_root: Path,
+    run_dir: Path,
+    child_output_mode: str,
+    poll_interval_s: float,
+    stop_timeout_s: float,
+    fault_tail_lines: int,
+) -> RunContext:
     run_dir.mkdir(parents=True, exist_ok=True)
     run_id = run_dir.name
     processes = [ProcessRuntime(spec=spec) for spec in profile.process_specs]
+    if child_output_mode == OUTPUT_CAPTURE:
+        for runtime in processes:
+            process_dir = run_dir / 'child_logs' / runtime.spec.name
+            process_dir.mkdir(parents=True, exist_ok=True)
+            runtime.stdout_log_path = process_dir / 'stdout.log'
+            runtime.stderr_log_path = process_dir / 'stderr.log'
+            runtime.stdout_log_path.touch(exist_ok=True)
+            runtime.stderr_log_path.touch(exist_ok=True)
     return RunContext(
         profile=profile,
         run_id=run_id,
         run_root=run_root,
         run_dir=run_dir,
-        quiet_children=quiet_children,
+        child_output_mode=child_output_mode,
         poll_interval_s=poll_interval_s,
         stop_timeout_s=stop_timeout_s,
+        fault_tail_lines=max(0, int(fault_tail_lines)),
         processes=processes,
     )
 
@@ -801,10 +986,11 @@ def start_process_sequence(ctx: RunContext, start_settle_s: float) -> None:
         write_process_status(ctx)
         write_manifest(ctx)
         try:
-            proc = spawn_process(runtime, ctx.quiet_children)
+            proc = spawn_process(ctx, runtime)
         except OSError as exc:
             runtime.state = STATE_FAILED
             runtime.last_failure_reason = str(exc)
+            close_process_output_handles(runtime)
             log_event(
                 ctx,
                 'process_start_failed',
@@ -814,7 +1000,18 @@ def start_process_sequence(ctx: RunContext, start_settle_s: float) -> None:
                 action='start',
                 result='failed',
             )
-            update_last_fault(ctx, 'process_start_failed', f'{runtime.spec.name} start failed: {exc}')
+            update_last_fault(
+                ctx,
+                'process_start_failed',
+                f'{runtime.spec.name} start failed: {exc}',
+                process_name=runtime.spec.name,
+                details={
+                    'cwd': str(runtime.spec.cwd),
+                    'command': list(runtime.spec.command),
+                    'stdout_log': str(runtime.stdout_log_path) if runtime.stdout_log_path is not None else '',
+                    'stderr_log': str(runtime.stderr_log_path) if runtime.stderr_log_path is not None else '',
+                },
+            )
             continue
 
         runtime.process = proc
@@ -894,7 +1091,20 @@ def run_supervisor(args: argparse.Namespace) -> int:
     profile = build_profile(args.profile)
     run_root = args.run_root.resolve()
     run_dir = args.run_dir.resolve() if args.run_dir is not None else build_run_dir(run_root, args.run_id or build_run_id())
-    ctx = init_run_context(profile, run_root, run_dir, args.quiet_children, args.poll_interval_s, args.stop_timeout_s)
+    child_output_mode = normalize_child_output_mode(
+        getattr(args, 'child_output', None),
+        getattr(args, 'quiet_children', False),
+        default_mode=OUTPUT_CAPTURE,
+    )
+    ctx = init_run_context(
+        profile,
+        run_root,
+        run_dir,
+        child_output_mode,
+        args.poll_interval_s,
+        args.stop_timeout_s,
+        args.fault_tail_lines,
+    )
 
     install_signal_handlers()
 
@@ -905,7 +1115,7 @@ def run_supervisor(args: argparse.Namespace) -> int:
         ctx,
         'supervisor_started',
         'info',
-        f'phase0 supervisor starting with profile={profile.name}',
+        f'phase0 supervisor starting with profile={profile.name} child_output={ctx.child_output_mode}',
         action='start',
         result='ok',
         pid=ctx.supervisor_pid,
@@ -924,8 +1134,18 @@ def run_supervisor(args: argparse.Namespace) -> int:
 
     if preflight_failed(results):
         ctx.supervisor_state = STATE_FAILED
-        failure_titles = ', '.join(item.title for item in results if not item.ok)
-        update_last_fault(ctx, 'preflight_failed', f'preflight failed: {failure_titles}')
+        failed_items = [
+            {'title': item.title, 'detail': item.detail}
+            for item in results
+            if not item.ok
+        ]
+        failure_titles = ', '.join(item['title'] for item in failed_items)
+        update_last_fault(
+            ctx,
+            'preflight_failed',
+            f'preflight failed: {failure_titles}',
+            details={'failed_checks': failed_items},
+        )
         write_process_status(ctx)
         write_manifest(ctx)
         return 1
@@ -974,6 +1194,16 @@ def cmd_start(args: argparse.Namespace) -> int:
     run_id = args.run_id or build_run_id()
     run_dir = build_run_dir(run_root, run_id)
 
+    child_output_mode = normalize_child_output_mode(
+        getattr(args, 'child_output', None),
+        getattr(args, 'quiet_children', False),
+        default_mode=OUTPUT_CAPTURE if args.detach else OUTPUT_INHERIT,
+    )
+    if args.detach and child_output_mode == OUTPUT_INHERIT:
+        print('[WARN] detached mode cannot inherit child stdout/stderr; using capture instead')
+        child_output_mode = OUTPUT_CAPTURE
+    args.child_output = child_output_mode
+
     if not args.detach:
         args.run_dir = run_dir
         return run_supervisor(args)
@@ -988,7 +1218,8 @@ def cmd_start(args: argparse.Namespace) -> int:
         '--start-settle-s', str(args.start_settle_s),
         '--poll-interval-s', str(args.poll_interval_s),
         '--stop-timeout-s', str(args.stop_timeout_s),
-        '--quiet-children',
+        '--fault-tail-lines', str(args.fault_tail_lines),
+        '--child-output', child_output_mode,
     ]
     if args.skip_port_check:
         child_cmd.append('--skip-port-check')
@@ -1012,6 +1243,7 @@ def cmd_start(args: argparse.Namespace) -> int:
 
     print(f'[INFO] detached supervisor pid={proc.pid} run_id={run_id}')
     print(f'[INFO] run_dir={run_dir}')
+    print(f'[INFO] child_output={child_output_mode}')
     return 0 if proc.poll() is None else int(proc.returncode or 1)
 
 
@@ -1031,10 +1263,20 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(json.dumps(data, ensure_ascii=False, indent=2))
         return 0
 
-    print(f"run_id={data.get('run_id')} profile={data.get('profile')} state={data.get('supervisor_state')}")
+    print(
+        f"run_id={data.get('run_id')} profile={data.get('profile')} "
+        f"state={data.get('supervisor_state')} child_output={data.get('child_output_mode')}"
+    )
     for proc in data.get('processes', []):
+        log_files = proc.get('log_files') or {}
+        extras = []
+        if log_files.get('stdout'):
+            extras.append(f"stdout_log={log_files['stdout']}")
+        if log_files.get('stderr'):
+            extras.append(f"stderr_log={log_files['stderr']}")
+        suffix = '' if not extras else ' ' + ' '.join(extras)
         print(
-            f"- {proc['name']}: state={proc['state']} pid={proc['pid']} exit_code={proc['exit_code']}"
+            f"- {proc['name']}: state={proc['state']} pid={proc['pid']} exit_code={proc['exit_code']}{suffix}"
         )
     return 0
 
@@ -1178,8 +1420,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     start.add_argument('--start-settle-s', type=float, default=0.5)
     start.add_argument('--poll-interval-s', type=float, default=0.5)
     start.add_argument('--stop-timeout-s', type=float, default=8.0)
+    start.add_argument('--fault-tail-lines', type=int, default=DEFAULT_FAULT_TAIL_LINES)
     start.add_argument('--skip-port-check', action='store_true')
-    start.add_argument('--quiet-children', action='store_true')
+    start.add_argument('--child-output', choices=[OUTPUT_INHERIT, OUTPUT_CAPTURE, OUTPUT_QUIET])
+    start.add_argument('--quiet-children', action='store_true', help='Compatibility alias for --child-output quiet')
     start.set_defaults(func=cmd_start)
 
     internal = sub.add_parser('_run')
@@ -1190,8 +1434,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     internal.add_argument('--start-settle-s', type=float, default=0.5)
     internal.add_argument('--poll-interval-s', type=float, default=0.5)
     internal.add_argument('--stop-timeout-s', type=float, default=8.0)
+    internal.add_argument('--fault-tail-lines', type=int, default=DEFAULT_FAULT_TAIL_LINES)
     internal.add_argument('--skip-port-check', action='store_true')
-    internal.add_argument('--quiet-children', action='store_true')
+    internal.add_argument('--child-output', choices=[OUTPUT_INHERIT, OUTPUT_CAPTURE, OUTPUT_QUIET], default=OUTPUT_CAPTURE)
+    internal.add_argument('--quiet-children', action='store_true', help='Compatibility alias for --child-output quiet')
     internal.set_defaults(func=run_supervisor)
 
     status = sub.add_parser('status', help='Show current process status file.')

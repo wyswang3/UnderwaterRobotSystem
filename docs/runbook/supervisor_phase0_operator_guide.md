@@ -13,7 +13,7 @@
 
 当前边界：
 
-1. 只负责 preflight、启停顺序、状态文件和故障摘要
+1. 只负责 preflight、启停顺序、状态文件、故障摘要和子进程 sidecar 输出日志
 2. 不接管 `uwnav_navd`、`pwm_control_program`、`nav_viewd`、`gcs_server` 的 authority
 3. `bench` profile 继续强制使用 `pwm_control_program --pwm-dummy`
 
@@ -63,7 +63,19 @@ python3 tools/supervisor/phase0_supervisor.py start   --profile bench   --detach
 
 - 当前 `bench` profile 会拉起真实二进制
 - 当前 `pwm_control_program` 仍带 `--pwm-dummy`
+- detached 模式默认会把每个子进程的 `stdout/stderr` 收到 `child_logs/<process>/stdout.log|stderr.log`
 - 这保证了 Phase 0 只做安全烟测，不直接驱动真实 PWM 输出
+
+常用可选项：
+
+- `--child-output inherit`
+  - 前台直通子进程输出，适合开发者盯终端
+- `--child-output capture`
+  - 推荐用于 detached / 现场调试，会落 sidecar 日志文件
+- `--child-output quiet`
+  - 丢弃子进程输出，只保留 supervisor 自己的状态文件
+- `--fault-tail-lines 40`
+  - 最近一次故障摘要里额外附带最后 40 行 child log
 
 如果当前环境不具备设备条件，`start` 会在 preflight 阶段失败并返回非零，但仍会生成运行文件，便于直接看阻塞点。
 
@@ -76,9 +88,10 @@ python3 tools/supervisor/phase0_supervisor.py status   --run-root /tmp/phase0_su
 重点看：
 
 1. `supervisor_state`
-2. `last_fault_event`
-3. `last_fault_message`
-4. 各进程的 `state / pid / exit_code`
+2. `child_output_mode`
+3. `last_fault_event`
+4. `last_fault_message`
+5. 各进程的 `state / pid / exit_code / log_files`
 
 常见状态：
 
@@ -112,17 +125,20 @@ python3 tools/supervisor/phase0_supervisor.py stop   --run-root /tmp/phase0_supe
 - `profile`
 - `run_dir`
 - 四个运行文件路径
+- `child_output_mode` / `child_logs_dir`
 - 固定启动顺序 / 退出顺序
-- 每个进程的命令行和依赖路径
+- 每个进程的命令行、依赖路径和预定 `stdout/stderr` 日志文件
 
 ### `process_status.json`
 
 看当前 run 的动态状态：
 
 - `supervisor_state`
+- `child_output_mode`
 - `last_fault_event`
 - `last_fault_message`
-- 每个进程的 `state / pid / start_wall_time / stop_wall_time / exit_code`
+- `last_fault_process_name` / `last_fault_details`
+- 每个进程的 `state / pid / start_wall_time / stop_wall_time / exit_code / log_files`
 
 ### `last_fault_summary.txt`
 
@@ -133,6 +149,8 @@ python3 tools/supervisor/phase0_supervisor.py stop   --run-root /tmp/phase0_supe
 - 是 preflight 失败
 - 还是进程运行中退出
 - 还是 stop 超时
+- 最近一次失败对应的是哪个进程
+- 对应 child `stdout/stderr` 最后几行是什么
 
 ### `supervisor_events.csv`
 
@@ -146,6 +164,16 @@ python3 tools/supervisor/phase0_supervisor.py stop   --run-root /tmp/phase0_supe
 - 进程停止
 - stop 请求
 - fallback stop
+
+### `child_logs/<process>/stdout.log|stderr.log`
+
+看子进程自己的滚动输出。
+
+适合在以下场景直接打开：
+
+- `process_start_failed`
+- `process_stopped` 且 `result=failed`
+- `last_fault_summary.txt` 已给出 `stdout_log` / `stderr_log` 路径
 
 ## 6. 常见失败先看哪里
 
@@ -175,12 +203,14 @@ python3 /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav
 
 ### 情况 C：进程 `state=failed`
 
-当前 Phase 0 还没有统一子进程 stdout / stderr 收口，因此要先看：
+当前 Phase 0 已支持最小 child stdout / stderr 收口。优先按顺序看：
 
-1. `supervisor_events.csv`
-2. 对应仓库自己的日志目录或终端输出
+1. `last_fault_summary.txt`
+2. `process_status.json` 里的 `last_fault_process_name / last_fault_details`
+3. `child_logs/<process>/stdout.log|stderr.log`
+4. `supervisor_events.csv`
 
-不要把这个限制误解成 authority 主链有设计变更；当前只是 supervisor 还没有接入更完整的外围收口。
+如果 `child_output=inherit`，仍要回到当前终端；如果 `child_output=quiet`，则只能依赖 supervisor 事件和对应仓库自己的日志目录。
 
 ## 7. 最小复现流程
 

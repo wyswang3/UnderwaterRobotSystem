@@ -5,6 +5,22 @@
 - 状态：Authoritative
 - 说明：Codex 当前阶段恢复上下文的高密度交接摘要。
 
+## 0. 2026-03-25 覆盖更新
+
+当前最新优先级已从“只围绕 Phase 0 supervisor 收口”推进到“日志体系 Phase B 第一批 C++ 低频结构化事件落地”，但边界不变：
+
+1. 仍然不做高频日志重写。
+2. 仍然不改 shared ABI。
+3. 仍然不做三传感器重构、导航模式重构或 ROS2 侧大整合。
+4. 允许在 authority 主链里做小步、低风险、低频的结构化事件落点。
+
+本轮已落地：
+
+- `uwnav_navd`：`device_bind_state_changed`、`serial_open_failed`、`sensor_update_rejected`、`nav_publish_state_changed`
+- `nav_viewd`：`nav_view_decision_changed`、`nav_view_publish_failed`、`nav_view_source_recovered`
+- `ControlGuard`：`guard_reject`、`guard_failsafe_entered`、`guard_failsafe_cleared`、`guard_nav_gating_changed`
+- 低频结构化事件文件：`nav_events.csv`、`control_events.csv`
+
 ## 1. 当前阶段
 
 当前项目阶段不是“继续堆功能”，而是：
@@ -173,44 +189,44 @@ mock 回归结果：
 3. 不为了“整合”把 authority 链迁到 Python。
 4. ROS2 不进入 control / nav authority 主线。
 5. `shared/` 是运行时共享契约真实源；文档仓镜像不是唯一真源。
-6. 当前 Phase 0 supervisor 仍然只是薄外壳，不得借机改 `uwnav_navd`、`ControlLoop`、`ControlGuard` 或把 `gcs_server` 变成父进程。
+6. 当前 Phase 0 supervisor 仍然只是薄外壳，不得借机把 `gcs_server` 变成父进程；允许在 `uwnav_navd`、`nav_viewd`、`ControlGuard` 内补低频结构化事件，但不得顺手改 authority 逻辑和高频路径。
 
 ## 5. 本轮直接触碰的仓库
 
-本轮直接改动的只有：
+本轮直接改动的仓库：
 
+- `Underwater-robot-navigation`
+  - 更新 `nav_core/src/nav_core/app/nav_daemon_runner.cpp`
+  - 为 `uwnav_navd` 新增低频 `nav_events.csv` 写入与首批 4 个事件
+- `OrangePi_STM32_for_ROV`
+  - 更新 `gateway/apps/nav_viewd.cpp`
+  - 更新 `pwm_control_program/include/control_core/control_guard.hpp`
+  - 更新 `pwm_control_program/src/control_core/control_guard.cpp`
+  - 更新 `pwm_control_program/src/control_core/loop/control_loop_run.cpp`
+  - 更新 `pwm_control_program/tests/test_v1_closed_loop.cpp`
 - `UnderwaterRobotSystem`
-  - 更新 `tools/supervisor/phase0_supervisor.py`
-  - 更新 `tools/supervisor/tests/test_phase0_supervisor.py`
-  - 新增 `docs/runbook/supervisor_phase0_operator_guide.md`
-  - 更新 handoff / progress / next actions / nightly / documentation index
-  - 尚未提交
+  - 更新 `docs/architecture/logging_full_chain_audit.md`
+  - 更新 `docs/interfaces/logging_contract.md`
+  - 更新 handoff / progress / next actions / nightly
 
-其余主仓本轮未做代码改动。
+本轮未提交，未推送。
 
 ## 6. 当前风险
 
-1. 真实 `bench` safe smoke 还没有在“设备节点就绪”的环境上成功完成。
-2. 当前 preflight 仍然是低风险可见性检查，不是复杂配置语义验证器。
-3. 当前还没有统一子进程 stdout / stderr 收口。
-4. 当前还没有自动重启策略。
-5. 如果后续 host 上的设备路径从固定 `ttyUSB*` / `ttyACM*` 迁到 by-id，supervisor 还需要再对齐最新 bench 配置。
+1. 本轮只补了 `uwnav_navd`、`nav_viewd`、`ControlGuard` 的第一批低频事件；`pwm_control_program` 其余边界和 `gcs_server` 仍未进入统一事件日志。
+2. `nav_events.csv` 与 `control_events.csv` 还没有通过 supervisor manifest / incident bundle 自动整合。
+3. 当前 `run_id` 在 C++ 侧优先读 `ROV_RUN_ID`，若未统一注入则仍会退回本地 fallback，跨进程完全一致性还有待后续收口。
+4. 真实 `bench` / 实机环境还没有用新的结构化事件日志跑一轮现场 smoke。
+5. 当前仍保留不少 stdout/stderr 调试输出，后续要避免和新的结构化事件语义重叠失控。
 
 ## 7. 下一步最建议做的事
 
-1. 在真实 IMU / DVL 设备就绪后，优先重跑：
-   - `preflight --profile bench`
-   - `start --profile bench --detach`
-   - `status --json`
-   - `stop`
-2. 继续保持 `pwm_control_program --pwm-dummy`，不要跨出 Phase 0 边界。
-3. 若真实 bench 启动成功，再只修 supervisor 自己暴露的问题；优先级应是：
-   - 运行文件可读性
-   - runbook 补充
-   - 视需要再补最小 stdout / stderr 收口
-4. 在 Phase 0 supervisor 稳定前，不要提前展开：
-   - 三传感器工具链公共外壳抽取
-   - 更大范围的统一日志接线
+1. 先在真实 `bench` 或最小可控环境里跑一轮带新事件日志的 smoke，确认 `nav_events.csv` / `control_events.csv` 的路径、字段和现场可读性。
+2. 继续沿日志 Phase B 推进，但只补剩余高价值低频点：
+   - `pwm_control_program` 的 controller / allocator / PWM 边界
+   - `gcs_server` 的 command lifecycle / ack / inject 结果
+3. 在第一批事件点稳定后，再进入 Phase C：统一 nav / control / comm 的低频状态快照。
+4. incident bundle 自动整合仍放在后续，不要在本轮已落地基础上顺手扩成全链路日志平台。
 
 ## 8. 下次启动优先阅读顺序
 
