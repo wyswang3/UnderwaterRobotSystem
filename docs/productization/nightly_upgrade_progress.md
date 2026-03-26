@@ -7,17 +7,19 @@
 
 ## 日期
 
-2026-03-25
+2026-03-26
 
 ## 当前目标
 
-本轮目标已经从“Phase 0 薄 supervisor / launcher 原型落地”推进到“真实安全烟测准备 + 最小 operator 可操作性收口”，重点仍然是：
+本轮最新目标是在不放宽安全边界的前提下，把“怎么本地调试、怎么板上启动、哪些改动属于高风险核心主链”固定成新的执行基线。重点是：
 
-1. 不触碰 authority 主链
-2. 优先让真实 `bench` safe smoke 有最小可复现入口
-3. 在环境不具备时，把 failure-path 诊断做清楚，而不是把失败留给黑盒进程输出
+1. 把核心 C++ 主链改动收紧到单模块、单点、单轮最小回归
+2. 优先继续推进外围模块的启动、诊断、日志和 bundle 收口
+3. 先把本地调试 / field startup / 日志导出流程文档化，再决定是否进入核心代码修补
+4. 把设备识别与分级启动 profile 先做成外围 gate，避免 tty 跳变和设备误绑直接带进 authority 进程
+5. 用真实 IMU / Volt32 / DVL 样本把设备识别规则从启发式收紧成样本支撑
 
-## 本轮完成项
+## 历史完成项（截至 2026-03-25）
 
 ### 1. Phase 0 supervisor 的 preflight 已补强
 
@@ -96,7 +98,7 @@
 3. `nav_viewd`
 4. `uwnav_navd`
 
-## 本轮验证方式
+## 历史验证方式（截至 2026-03-25）
 
 已执行：
 
@@ -231,3 +233,197 @@
 - supervisor manifest 与 incident bundle 自动整合
 - `gcs_server` 的统一 `comm_events.csv`
 - `pwm_control_program` 其余 controller / allocator / PWM 边界事件
+
+
+## 2026-03-26 追加进展：核心 C++ 主链高风险执行原则与本地/实地启动 guide
+
+本轮只做 docs/runbook 收口，不触碰 authority C++ 逻辑。
+
+### 已落地
+
+1. 新增 `docs/runbook/local_debug_and_field_startup_guide.md`，统一说明：
+   - mock / preflight / bench safe smoke
+   - supervisor 运行文件与 child logs 查看顺序
+   - 无设备时的最小验证路径
+   - 板上设备就位前检查项
+   - 串口 / by-id 确认方式
+   - 必须保持 `--pwm-dummy` 的场景
+   - 日志导出与 incident bundle 最小步骤
+2. `CODEX_HANDOFF.md` 已同步新增“核心 C++ 主链高风险区域”约束。
+3. `CODEX_NEXT_ACTIONS.md` 已同步新增：
+   - 外围模块 / 核心主链边界
+   - 核心主链一次只改一个小点
+   - 每次都要做最小回归
+   - 后续涉及核心主链时的固定收口要求
+
+### 本轮验证
+
+已完成：
+
+- 复核 `supervisor_phase0_operator_guide.md`
+- 复核 `usb_reconnect_bench_plan.md`
+- 复核 `bringup_runbook.md`
+- 复核 `log_replay_guide.md`
+- 复核 `incident_timeline_usage.md`
+- docs-only 交叉引用与命令路径人工检查
+
+当前未执行：
+
+- 新的核心 C++ 改动
+- 真实 bench / 实地 smoke
+- incident bundle 自动整合
+
+
+## 2026-03-26 追加进展：外围排障闭环 Phase 1 incident bundle
+
+本轮只推进外围模块商业化收口，不触碰核心 C++ 主链 authority 逻辑。
+
+### 已落地
+
+1. 新增 `tools/supervisor/incident_bundle.py`，把 supervisor run files、child logs、低频事件入口和现有高频日志入口导出到固定 bundle 目录。
+2. `phase0_supervisor.py` 新增 `bundle` 子命令，作为统一导出入口。
+3. 默认导出目录固定为 `<run_dir>/bundle/<timestamp>/`，并生成：
+   - `bundle_summary.json`
+   - `bundle_summary.txt`
+   - `supervisor/`
+   - `child_logs/`
+   - `events/`
+   - `nav/`
+   - `control/`
+   - `telemetry/`
+4. required / optional / incomplete 规则已固定：
+   - required：supervisor 自己的 4 个 run files
+   - optional：child logs、结构化低频事件、高频 `bin/csv`
+   - 缺失时 bundle 仍导出，但会明确标成 incomplete
+5. 新增 `docs/runbook/incident_bundle_guide.md`，并更新 `local_debug_and_field_startup_guide.md`，把 bundle 导出、查看顺序和问题反馈路径写清楚。
+
+### 本轮验证
+
+已执行：
+
+- `python3 -m py_compile tools/supervisor/phase0_supervisor.py tools/supervisor/incident_bundle.py tools/supervisor/tests/test_phase0_supervisor.py`
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor`
+- 一次真实 `mock start -> stop -> bundle --json`
+
+已确认：
+
+- bundle 默认输出到 `<run_dir>/bundle/<timestamp>/`
+- required 缺失时 `required_ok=false`
+- optional 缺失时 `bundle_status=incomplete`
+- `bundle_summary` 会明确列出缺失项和 `merge_robot_timeline` readiness
+
+### 当前未执行
+
+- 真实 `bench` / 实机环境的 bundle 导出演练
+- 一键压缩归档或上传
+- supervisor 内直接代跑 `merge_robot_timeline.py`
+
+
+## 2026-03-26 追加进展：真实 bench bundle 演练与最小归档 helper
+
+本轮仍然只推进外围排障闭环，不触碰核心 C++ authority 逻辑。
+
+### 已落地
+
+1. 在真实主机执行了一次 `bench` preflight / start / bundle 演练，拿到了真实 failure-path run dir。
+2. 已确认真实 `run_dir` 的 bundle 导出可用：
+   - `required_ok=true`
+   - `bundle_status=incomplete`
+   - `run_stage=preflight_failed_before_spawn`
+3. 已确认零字节 `child_logs` 会进入 bundle，`events/nav/control/telemetry` 缺失属于该样本的预期结果。
+4. 新增 `tools/supervisor/bundle_archive.py`，可把现有 bundle 最小打成同级 `.tar.gz`。
+5. runbook 已同步补充：preflight-failed 样本的判读方式，以及本地归档 helper 的使用方式。
+
+### 本轮验证
+
+已执行：
+
+- `python3 -m py_compile tools/supervisor/tests/test_phase0_supervisor.py tools/supervisor/bundle_archive.py tools/supervisor/tests/test_bundle_archive.py`
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor tools.supervisor.tests.test_bundle_archive`
+- `python3 tools/supervisor/phase0_supervisor.py bundle --run-dir /tmp/phase0_supervisor_bench_smoke/2026-03-26/20260326_201943_37835 --json`
+- `python3 tools/supervisor/bundle_archive.py --bundle-dir /tmp/phase0_supervisor_bench_smoke/2026-03-26/20260326_201943_37835/bundle/20260326_202046 --json`
+
+### 当前未完成
+
+- 设备就绪条件下真正进入 `child_process_started` 的 `bench safe smoke`
+- 基于真实 child-process 样本再次复核 `events/` 与高频日志收集
+- 上传或问题单集成
+
+
+## 2026-03-26 追加进展：设备识别辅助工具与分级启动 profile
+
+本轮继续只做外围增强，不碰核心 C++ authority 主链。
+
+### 已落地
+
+1. 新增设备识别辅助工具：
+   - `tools/supervisor/device_identification.py`
+   - `tools/supervisor/device_identification_rules.json`
+2. 新增分级启动 profile 目录：
+   - `tools/supervisor/device_profiles.py`
+3. `phase0_supervisor.py` 新增：
+   - `device-scan`
+   - `startup-profiles`
+   - `--startup-profile auto|...`
+4. `bench preflight` 已能根据识别结果做 `startup_profile_gate`：
+   - `no_sensor` / `volt_only` / `reserved` 不允许继续进入当前 `bench` authority 链
+   - 歧义设备直接拒绝自动绑定
+5. run files 已同步写入当前 startup profile 与设备识别摘要。
+
+### 本轮验证
+
+已执行：
+
+1. `python3 -m py_compile`
+2. `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor tools.supervisor.tests.test_bundle_archive tools.supervisor.tests.test_device_identification`
+3. `python3 tools/supervisor/phase0_supervisor.py startup-profiles --json`
+4. `python3 tools/supervisor/phase0_supervisor.py device-scan --sample-policy off --json`
+5. `python3 tools/supervisor/phase0_supervisor.py preflight --profile bench --startup-profile auto --run-root /tmp/phase0_supervisor_device_profile_preflight`
+
+### 当前限制
+
+1. 动态指纹还没有经过真实 IMU / DVL / Volt32 长时间样本校准。
+2. `imu_dvl_usbl` / `full_stack` 仍是预留设计。
+3. 当前只做 gate / 记录，不按 profile 改写 authority 进程图。
+
+## 2026-03-26 追加进展：设备识别规则已按真实样本收紧
+
+本轮只做 `UnderwaterRobotSystem` 的外围工具和文档收口，不触碰核心 C++ authority 主链。
+
+### 已落地
+
+1. 已读取并分析真实 IMU / Volt32 / DVL 样本。
+2. 已确认：
+   - DVL `SA/TS/BI/BS/BE/BD` 是稳定强动态 token
+   - Volt32 `CH0..CH15` 导出 CSV 与 `V/A` 后缀可作为样本支撑
+   - IMU 当前 runtime 主链是 `WIT Modbus-RTU` 轮询，因此被动动态识别不能当主判据
+3. `device_identification.py` 已改成更保守的可信绑定策略：
+   - `score < 0.60` 回退 `unknown`
+   - 高分冲突显式 `ambiguous`
+   - 输出 `resolution.reason`、`resolution.top_candidate`、`rule_support`
+4. `device_identification_rules.json` 已明确写出：
+   - 哪些规则已经是样本支撑
+   - 哪些仍是 partial
+   - 哪些仍只是 candidate-only
+5. `test_device_identification.py` 已改成样本驱动验证，并新增真实样本摘录夹具。
+
+### 本轮验证
+
+已执行：
+
+- `python3 -m py_compile tools/supervisor/device_identification.py tools/supervisor/device_profiles.py tools/supervisor/phase0_supervisor.py tools/supervisor/tests/test_device_identification.py`
+- `python3 -m unittest tools.supervisor.tests.test_device_identification`
+
+当前仍未执行：
+
+- 真实 bench 下的 `imu_only` 推荐稳定性验证
+- 真实 bench 下的 `imu_dvl` 推荐稳定性验证
+- 真实 `/dev/serial/by-id` / sysfs 静态快照校准
+- IMU live serial 主动探测验证
+
+### 下一步最建议做的事
+
+1. 在真实 bench 上补采静态身份快照，用于继续收紧 IMU / Volt32 / DVL 白名单。
+2. 在真实 bench 条件下分别验证 `imu_only` 与 `imu_dvl` 的 profile 推荐和 gate。
+3. 若继续推进，只在 supervisor / preflight / runbook 侧做轻量收口，不提前改核心 authority 主链。
+

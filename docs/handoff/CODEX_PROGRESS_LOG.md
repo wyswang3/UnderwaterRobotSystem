@@ -494,3 +494,120 @@
 
 - `Underwater-robot-navigation`、`OrangePi_STM32_for_ROV`、`UnderwaterRobotSystem` 均有未提交本地改动
 - 未执行 `git push`
+
+
+## 2026-03-26（外围排障闭环 Phase 1：incident bundle 最小自动整合）
+
+### 完成内容
+
+- 只触碰 `UnderwaterRobotSystem` 的 supervisor / tooling / runbook，不触碰核心 C++ 主链 authority 行为。
+- 新增 `tools/supervisor/incident_bundle.py`，按固定目录导出：
+  - supervisor run files
+  - `child_logs/`
+  - `events/`
+  - `nav/`
+  - `control/`
+  - `telemetry/`
+- `phase0_supervisor.py` 新增 `bundle` 子命令，支持 latest run、`--run-dir`、`--bundle-dir`、`--json`。
+- 新增 `bundle_summary.json` / `bundle_summary.txt`。
+- 固定 required / optional / incomplete 规则，并在 summary 里显式列出 `missing_required_keys` / `missing_optional_keys`。
+- 新增 `docs/runbook/incident_bundle_guide.md`，并更新 `local_debug_and_field_startup_guide.md`，把“运行 -> 记录 -> 导出 -> 反馈 -> 复现”闭环写清楚。
+
+### 验证结果
+
+- `python3 -m py_compile tools/supervisor/phase0_supervisor.py tools/supervisor/incident_bundle.py tools/supervisor/tests/test_phase0_supervisor.py`：通过
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor`：通过（7 个用例）
+- 真实 `mock start -> stop -> bundle --json`：通过
+  - 已确认默认输出到 `<run_dir>/bundle/<timestamp>/`
+  - 已确认高频日志缺失时返回 `bundle_status=incomplete`
+  - 已确认 `missing_required_keys=[]`
+
+### 当前剩余风险
+
+1. 当前 bundle 还是目录导出，不带压缩归档或上传能力。
+2. supervisor 目前只给出 `merge_robot_timeline` 的 `ready` / `command_hint`，还没有直接一键代跑 merge。
+3. 真实 `bench` / 实机环境下还没有用新的 bundle 导出流程跑一轮现场反馈演练。
+4. `gcs_server` 的 `comm_events.csv` 在未落地前，会长期处于 optional missing。
+
+### Git 收口
+
+- 本轮实际代码与文档改动只在 `UnderwaterRobotSystem`
+- 未执行 `git push`
+
+
+## 2026-03-26（真实 bench run dir bundle 验证与最小归档 helper）
+
+### 完成内容
+
+- 在真实主机执行 `preflight --profile bench --run-root /tmp/phase0_supervisor_bench_smoke`，确认当前仍被 `bench_device_ttyUSB0` / `bench_device_ttyACM0` 阻塞。
+- 执行一次真实 `start --profile bench --detach`，拿到 run dir：
+  - `/tmp/phase0_supervisor_bench_smoke/2026-03-26/20260326_201943_37835`
+- 从该真实 `run_dir` 执行 `bundle --run-dir ... --json`，复核 `bundle_summary`、missing keys、child logs、events、高频日志收集结果。
+- 新增 `tools/supervisor/bundle_archive.py`，把现有 bundle 目录最小打成同级 `.tar.gz`。
+- 新增 `tools/supervisor/tests/test_bundle_archive.py`。
+- 更新 `incident_bundle_guide.md` 与 `local_debug_and_field_startup_guide.md`，明确 preflight-failed 样本的 bundle 判读与归档 helper 用法。
+- 修复 `tools/supervisor/tests/test_phase0_supervisor.py` 中一处未闭合字符串，恢复定向单测可执行性。
+
+### 验证结果
+
+- `python3 -m py_compile tools/supervisor/tests/test_phase0_supervisor.py tools/supervisor/bundle_archive.py tools/supervisor/tests/test_bundle_archive.py`：通过
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor tools.supervisor.tests.test_bundle_archive`：通过（10 个用例）
+- 真实 `phase0_supervisor.py bundle --run-dir /tmp/phase0_supervisor_bench_smoke/2026-03-26/20260326_201943_37835 --json`：通过
+  - `required_ok=true`
+  - `bundle_status=incomplete`
+  - `run_stage=preflight_failed_before_spawn`
+  - 已正确收集 4 个 supervisor run files 和 8 个零字节 `child_logs`
+  - `events/nav/control/telemetry` 缺失符合 failure-path 预期
+- 真实 `bundle_archive.py --bundle-dir /tmp/phase0_supervisor_bench_smoke/2026-03-26/20260326_201943_37835/bundle/20260326_202046 --json`：通过
+  - 产出 `/tmp/phase0_supervisor_bench_smoke/2026-03-26/20260326_201943_37835/bundle/20260326_202046.tar.gz`
+  - `archive_size_bytes=5037`
+
+### 当前剩余风险
+
+1. 本机仍缺真实 `bench` 设备节点，尚未拿到真正进入 `child_process_started` 的 safe smoke 样本。
+2. `gcs_server` 的 `comm_events.csv` 未落地前，相关 artifact 仍会长期处于 optional missing。
+3. 当前只做本地 `.tar.gz` 归档，不做上传或问题单集成。
+
+### Git 收口
+
+- 本轮实际代码与文档改动只在 `UnderwaterRobotSystem`
+- 未执行 `git push`
+
+## 2026-03-26（设备识别规则按真实样本校准）
+
+### 完成内容
+
+- 只触碰 `UnderwaterRobotSystem` 的 supervisor / tooling / runbook，不触碰核心 C++ authority 主链。
+- 读取并分析真实样本：
+  - IMU：`imu_raw_log_20260110_192246.csv`、`imu_raw_data_20240618.csv`、WIT 历史文本样本
+  - Volt32：`motor_data_20240618.csv`
+  - DVL：`dvl_raw_lines_20260126_102520.csv`、`dvl_raw_lines_20260110_192211.csv`
+- 确认 IMU 当前 runtime 主链实际使用 `WIT Modbus-RTU` 轮询，因此被动采样不能再当 IMU 主判据。
+- 把 `tools/supervisor/device_identification.py` 重写为更严格的“样本支撑 / partial / candidate_only”三层识别：
+  - DVL：`SA/TS/BI/BS/BE/BD` 强动态规则
+  - Volt32：`CH0..CH15` 导出 CSV + `V/A` 后缀样本规则，`CHn:` live 行保留 partial
+  - IMU：导出 CSV 字段集合样本规则，旧 `0x55` 同步帧降为兼容候选
+- 新增更严格的退化行为：
+  - `score < 0.60` 直接回退 `unknown`
+  - 高分接近候选显式标记 `ambiguous`
+  - 输出 `resolution.reason`、`resolution.top_candidate`、`rule_support`
+- 更新 `device_identification_rules.json`，写入样本支撑等级与剩余缺口。
+- 新增样本夹具 `tools/supervisor/tests/fixtures/`，并把 `test_device_identification.py` 改成样本驱动验证。
+
+### 验证结果
+
+- `python3 -m py_compile tools/supervisor/device_identification.py tools/supervisor/device_profiles.py tools/supervisor/phase0_supervisor.py tools/supervisor/tests/test_device_identification.py`：通过
+- `python3 -m unittest tools.supervisor.tests.test_device_identification`：通过（10 个用例）
+
+### 当前剩余风险
+
+1. 还没有真实 `/dev/serial/by-id` / sysfs 快照去继续收紧静态白名单。
+2. IMU live serial 主动探测仍未实现，当前仍需要依赖强静态身份才能稳推 `imu_only`。
+3. Volt32 还缺原始串口行日志，因此 live `CHn:` 规则仍是 partial。
+4. USBL 仍没有真实样本。
+
+### Git 收口
+
+- 本轮实际代码与文档改动只在 `UnderwaterRobotSystem`
+- 未执行 `git push`
+

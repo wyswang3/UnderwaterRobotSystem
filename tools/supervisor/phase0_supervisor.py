@@ -18,6 +18,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import BinaryIO, List, Optional, Sequence
 
+from tools.supervisor import device_identification, device_profiles, incident_bundle
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE_ROOT = REPO_ROOT.parent
 NAV_CORE_ROOT = WORKSPACE_ROOT / 'Underwater-robot-navigation' / 'nav_core'
@@ -54,6 +56,8 @@ EVENT_HEADER = [
 ]
 
 DEVICE_PORT_RE = re.compile(r'^\s*port:\s*"(?P<path>/dev/[^"]+)"\s*$')
+STARTUP_PROFILE_CHOICES = [device_profiles.AUTO_PROFILE] + [item['name'] for item in device_profiles.serialize_profile_catalog()]
+DEVICE_SCAN_SAMPLE_CHOICES = ['auto', 'off', 'always']
 
 
 class SupervisorError(RuntimeError):
@@ -146,6 +150,10 @@ class RunContext:
     last_fault_wall_time: str = ''
     last_fault_process_name: str = ''
     last_fault_details: dict = field(default_factory=dict)
+    startup_profile_name: str = ''
+    startup_profile_source: str = ''
+    recommended_startup_profile_name: str = ''
+    device_identification_summary: dict = field(default_factory=dict)
 
     @property
     def supervisor_pid(self) -> int:
@@ -475,6 +483,9 @@ def run_preflight_checks(
     *,
     skip_port_check: bool = False,
     ignore_run_dir: Optional[Path] = None,
+    enable_device_scan: bool = False,
+    startup_profile_request: str = device_profiles.AUTO_PROFILE,
+    device_metadata: Optional[dict] = None,
 ) -> List[PreflightResult]:
     results: List[PreflightResult] = [
         check_python_runtime(),
@@ -527,6 +538,19 @@ def run_preflight_checks(
         # by-id 缺失先记为提示，不阻塞当前固定 tty 路径的 bench 配置。
         results.append(check_serial_by_id_visibility())
 
+        if enable_device_scan:
+            try:
+                scan_summary = device_identification.scan_device_inventory(
+                    requested_startup_profile=startup_profile_request,
+                )
+            except Exception as exc:
+                results.append(PreflightResult(False, 'device_scan', f'device scan failed ({exc})'))
+            else:
+                if device_metadata is not None:
+                    device_metadata.clear()
+                    device_metadata.update(scan_summary)
+                results.extend(build_device_scan_preflight_results(profile, scan_summary))
+
     if profile.gcs_bind_ip and profile.gcs_bind_port and not skip_port_check:
         results.append(check_bind_port(profile.gcs_bind_ip, profile.gcs_bind_port))
 
@@ -547,6 +571,104 @@ def print_preflight(profile: Profile, results: Sequence[PreflightResult]) -> Non
 
 def preflight_failed(results: Sequence[PreflightResult]) -> bool:
     return any(not item.ok for item in results)
+
+
+def build_empty_device_scan_summary(requested_startup_profile: str) -> dict:
+    counts = device_profiles.empty_device_counts()
+    return {
+        'generated_wall_time': wall_time_now(),
+        'rules_path': str(device_identification.DEFAULT_RULES_PATH.resolve()),
+        'sample_policy': 'off',
+        'sample_window_s': 0.0,
+        'max_sample_bytes': 0,
+        'requested_startup_profile': requested_startup_profile,
+        'devices': [],
+        'device_counts': counts,
+        'device_summary': 'device scan skipped for non-bench profile',
+        'recommended_bindings': {},
+        'ambiguous': False,
+        'ambiguous_devices': [],
+        'risk_hints': [],
+        'recommended_startup_profile': device_profiles.recommend_startup_profile(counts),
+        'selected_startup_profile': device_profiles.resolve_startup_profile(requested_startup_profile, counts),
+    }
+
+
+def apply_device_scan_summary(ctx: RunContext, summary: dict) -> None:
+    if not summary:
+        return
+    selected = summary.get('selected_startup_profile') or {}
+    recommended = summary.get('recommended_startup_profile') or {}
+    ctx.startup_profile_name = str(selected.get('selected') or '')
+    ctx.startup_profile_source = str(selected.get('source') or '')
+    ctx.recommended_startup_profile_name = str(recommended.get('profile') or '')
+    ctx.device_identification_summary = dict(summary)
+
+
+def build_device_scan_preflight_results(profile: Profile, summary: dict) -> List[PreflightResult]:
+    counts = summary.get('device_counts') or device_profiles.empty_device_counts()
+    selected = summary.get('selected_startup_profile') or {}
+    recommended = summary.get('recommended_startup_profile') or {}
+    bindings = summary.get('recommended_bindings') or {}
+
+    binding_text = 'no trusted binding recommended yet'
+    if bindings:
+        binding_text = ', '.join(f'{key}={value}' for key, value in sorted(bindings.items()))
+
+    results = [
+        PreflightResult(
+            True,
+            'device_inventory',
+            f"{device_profiles.summarize_device_counts(counts)}; {summary.get('device_summary') or '-'}",
+        ),
+        PreflightResult(
+            True,
+            'device_recommendations',
+            binding_text,
+        ),
+        PreflightResult(
+            True,
+            'startup_profile',
+            f"requested={summary.get('requested_startup_profile') or device_profiles.AUTO_PROFILE} "
+            f"selected={selected.get('selected') or '-'} "
+            f"recommended={recommended.get('profile') or '-'} "
+            f"launch_mode={selected.get('launch_mode') or '-'}",
+        ),
+    ]
+
+    if summary.get('ambiguous'):
+        results.append(
+            PreflightResult(
+                False,
+                'device_binding_ambiguity',
+                ', '.join(summary.get('ambiguous_devices') or []) or 'ambiguous serial candidates detected',
+            )
+        )
+
+    if selected.get('errors'):
+        results.append(
+            PreflightResult(
+                False,
+                'startup_profile_requirements',
+                '; '.join(selected.get('errors') or []),
+            )
+        )
+
+    if profile.name == 'bench' and selected.get('launch_mode') != 'bench_safe_smoke':
+        results.append(
+            PreflightResult(
+                False,
+                'startup_profile_gate',
+                f"selected startup profile={selected.get('selected') or '-'} launch_mode={selected.get('launch_mode') or '-'}; "
+                'keep to preflight / sensor tools only',
+            )
+        )
+
+    notes = list(selected.get('warnings') or []) + list(summary.get('risk_hints') or [])
+    if notes:
+        results.append(PreflightResult(True, 'device_scan_risks', '; '.join(notes)))
+
+    return results
 
 
 def append_event_row(path: Path, row: List[str]) -> None:
@@ -580,6 +702,9 @@ def build_manifest(ctx: RunContext) -> dict:
         'run_id': ctx.run_id,
         'profile': ctx.profile.name,
         'profile_description': ctx.profile.description,
+        'startup_profile': ctx.startup_profile_name or None,
+        'startup_profile_source': ctx.startup_profile_source or None,
+        'recommended_startup_profile': ctx.recommended_startup_profile_name or None,
         'created_wall_time': ctx.created_wall_time,
         'updated_wall_time': wall_time_now(),
         'mono_start_ns': ctx.mono_start_ns,
@@ -590,6 +715,7 @@ def build_manifest(ctx: RunContext) -> dict:
         'run_root': str(ctx.run_root),
         'run_dir': str(ctx.run_dir),
         'child_logs_dir': str(ctx.child_logs_dir),
+        'device_identification': ctx.device_identification_summary or None,
         'run_files': {
             'run_manifest': str(ctx.manifest_path),
             'process_status': str(ctx.status_path),
@@ -612,6 +738,9 @@ def build_process_status(ctx: RunContext) -> dict:
     return {
         'run_id': ctx.run_id,
         'profile': ctx.profile.name,
+        'startup_profile': ctx.startup_profile_name or None,
+        'startup_profile_source': ctx.startup_profile_source or None,
+        'recommended_startup_profile': ctx.recommended_startup_profile_name or None,
         'supervisor_pid': ctx.supervisor_pid,
         'supervisor_state': ctx.supervisor_state,
         'child_output_mode': ctx.child_output_mode,
@@ -622,6 +751,7 @@ def build_process_status(ctx: RunContext) -> dict:
         'last_fault_message': ctx.last_fault_message,
         'last_fault_process_name': ctx.last_fault_process_name or None,
         'last_fault_details': ctx.last_fault_details,
+        'device_identification': ctx.device_identification_summary or None,
         'processes': [runtime.to_status_dict() for runtime in ctx.processes],
     }
 
@@ -640,6 +770,30 @@ def write_last_fault_summary(ctx: RunContext) -> None:
         f'process_name={ctx.last_fault_process_name or ""}',
         f'message={ctx.last_fault_message}',
     ]
+
+    if ctx.startup_profile_name:
+        lines.append(f'startup_profile={ctx.startup_profile_name}')
+    if ctx.startup_profile_source:
+        lines.append(f'startup_profile_source={ctx.startup_profile_source}')
+    if ctx.recommended_startup_profile_name:
+        lines.append(f'recommended_startup_profile={ctx.recommended_startup_profile_name}')
+    if ctx.device_identification_summary:
+        device_counts = ctx.device_identification_summary.get('device_counts') or device_profiles.empty_device_counts()
+        lines.append(f"device_counts={device_profiles.summarize_device_counts(device_counts)}")
+        bindings = ctx.device_identification_summary.get('recommended_bindings') or {}
+        if bindings:
+            lines.append(f"recommended_bindings={json.dumps(bindings, ensure_ascii=False, sort_keys=True)}")
+        compact_devices = [
+            {
+                'device_type': item.get('device_type'),
+                'current_path': item.get('current_path'),
+                'confidence': item.get('confidence', {}).get('score'),
+                'ambiguous': item.get('ambiguous'),
+            }
+            for item in ctx.device_identification_summary.get('devices', [])
+        ]
+        if compact_devices:
+            lines.append(f"identified_devices_json={json.dumps(compact_devices, ensure_ascii=False, sort_keys=True)}")
 
     stdout_log = details.get('stdout_log')
     stderr_log = details.get('stderr_log')
@@ -1121,12 +1275,21 @@ def run_supervisor(args: argparse.Namespace) -> int:
         pid=ctx.supervisor_pid,
     )
 
+    device_metadata: dict = {}
     results = run_preflight_checks(
         profile,
         run_root,
         skip_port_check=args.skip_port_check,
         ignore_run_dir=run_dir,
+        enable_device_scan=profile.name == 'bench',
+        startup_profile_request=args.startup_profile,
+        device_metadata=device_metadata,
     )
+    if device_metadata:
+        apply_device_scan_summary(ctx, device_metadata)
+        write_manifest(ctx)
+        write_process_status(ctx)
+        write_last_fault_summary(ctx)
     for item in results:
         event = 'preflight_passed' if item.ok else 'preflight_failed'
         level = 'info' if item.ok else 'error'
@@ -1184,6 +1347,8 @@ def cmd_preflight(args: argparse.Namespace) -> int:
         run_root,
         skip_port_check=args.skip_port_check,
         ignore_run_dir=None,
+        enable_device_scan=profile.name == 'bench',
+        startup_profile_request=args.startup_profile,
     )
     print_preflight(profile, results)
     return 1 if preflight_failed(results) else 0
@@ -1220,6 +1385,7 @@ def cmd_start(args: argparse.Namespace) -> int:
         '--stop-timeout-s', str(args.stop_timeout_s),
         '--fault-tail-lines', str(args.fault_tail_lines),
         '--child-output', child_output_mode,
+        '--startup-profile', args.startup_profile,
     ]
     if args.skip_port_check:
         child_cmd.append('--skip-port-check')
@@ -1263,10 +1429,15 @@ def cmd_status(args: argparse.Namespace) -> int:
         print(json.dumps(data, ensure_ascii=False, indent=2))
         return 0
 
-    print(
+    header = (
         f"run_id={data.get('run_id')} profile={data.get('profile')} "
         f"state={data.get('supervisor_state')} child_output={data.get('child_output_mode')}"
     )
+    if data.get('startup_profile'):
+        header += f" startup_profile={data.get('startup_profile')}"
+    if data.get('recommended_startup_profile'):
+        header += f" recommended_startup_profile={data.get('recommended_startup_profile')}"
+    print(header)
     for proc in data.get('processes', []):
         log_files = proc.get('log_files') or {}
         extras = []
@@ -1402,6 +1573,69 @@ def cmd_stop(args: argparse.Namespace) -> int:
     return fallback_stop(run_dir, args.timeout_s)
 
 
+def cmd_device_scan(args: argparse.Namespace) -> int:
+    try:
+        summary = device_identification.scan_device_inventory(
+            dev_root=args.dev_root.resolve(),
+            sys_root=args.sys_root.resolve(),
+            rules_path=args.rules_path.resolve() if args.rules_path is not None else None,
+            sample_policy=args.sample_policy,
+            sample_window_s=args.sample_window_s,
+            max_sample_bytes=max(1, int(args.max_sample_bytes)),
+            requested_startup_profile=args.startup_profile,
+        )
+    except Exception as exc:
+        print(f'[ERR] device scan failed: {exc}')
+        return 1
+
+    if args.json:
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        device_identification.print_table(summary)
+    return 0
+
+
+def cmd_startup_profiles(args: argparse.Namespace) -> int:
+    catalog = device_profiles.serialize_profile_catalog()
+    if args.json:
+        print(json.dumps(catalog, ensure_ascii=False, indent=2))
+        return 0
+
+    for item in catalog:
+        required = ','.join(item['required_devices']) or '-'
+        print(
+            f"{item['name']}: launch_mode={item['launch_mode']} implemented={str(item['implemented']).lower()} required={required}"
+        )
+    return 0
+
+
+def cmd_bundle(args: argparse.Namespace) -> int:
+    run_dir = resolve_target_run_dir(args.run_root.resolve(), args.run_dir.resolve() if args.run_dir is not None else None)
+    if run_dir is None:
+        print('[ERR] no supervisor run found')
+        return 1
+
+    bundle_dir = args.bundle_dir.resolve() if args.bundle_dir is not None else None
+    try:
+        summary = incident_bundle.export_run_bundle(run_dir, bundle_dir=bundle_dir)
+    except incident_bundle.IncidentBundleError as exc:
+        print(f'[ERR] {exc}')
+        return 1
+
+    if args.json:
+        print(json.dumps(summary, ensure_ascii=False, indent=2))
+    else:
+        print(f"[INFO] bundle_dir={summary['bundle_dir']}")
+        print(f"[INFO] bundle_status={summary['bundle_status']}")
+        if summary['bundle_incomplete']:
+            missing = ', '.join(summary['missing_optional_keys']) if summary['missing_optional_keys'] else ', '.join(summary['missing_required_keys'])
+            print(f'[WARN] bundle incomplete, missing={missing or "-"}')
+        print('[INFO] first look:')
+        for item in summary['start_here']:
+            print(f'  {item}')
+    return 0
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description='Phase 0 thin supervisor / launcher prototype.')
     sub = parser.add_subparsers(dest='command', required=True)
@@ -1410,6 +1644,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     preflight.add_argument('--profile', default='bench', choices=['bench', 'mock'])
     preflight.add_argument('--run-root', type=Path, default=DEFAULT_RUN_ROOT)
     preflight.add_argument('--skip-port-check', action='store_true')
+    preflight.add_argument('--startup-profile', default=device_profiles.AUTO_PROFILE, choices=STARTUP_PROFILE_CHOICES)
     preflight.set_defaults(func=cmd_preflight)
 
     start = sub.add_parser('start', help='Start supervisor in foreground or detached mode.')
@@ -1422,6 +1657,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     start.add_argument('--stop-timeout-s', type=float, default=8.0)
     start.add_argument('--fault-tail-lines', type=int, default=DEFAULT_FAULT_TAIL_LINES)
     start.add_argument('--skip-port-check', action='store_true')
+    start.add_argument('--startup-profile', default=device_profiles.AUTO_PROFILE, choices=STARTUP_PROFILE_CHOICES)
     start.add_argument('--child-output', choices=[OUTPUT_INHERIT, OUTPUT_CAPTURE, OUTPUT_QUIET])
     start.add_argument('--quiet-children', action='store_true', help='Compatibility alias for --child-output quiet')
     start.set_defaults(func=cmd_start)
@@ -1436,15 +1672,40 @@ def build_arg_parser() -> argparse.ArgumentParser:
     internal.add_argument('--stop-timeout-s', type=float, default=8.0)
     internal.add_argument('--fault-tail-lines', type=int, default=DEFAULT_FAULT_TAIL_LINES)
     internal.add_argument('--skip-port-check', action='store_true')
+    internal.add_argument('--startup-profile', default=device_profiles.AUTO_PROFILE, choices=STARTUP_PROFILE_CHOICES)
     internal.add_argument('--child-output', choices=[OUTPUT_INHERIT, OUTPUT_CAPTURE, OUTPUT_QUIET], default=OUTPUT_CAPTURE)
     internal.add_argument('--quiet-children', action='store_true', help='Compatibility alias for --child-output quiet')
     internal.set_defaults(func=run_supervisor)
+
+    device_scan = sub.add_parser('device-scan', help='Inspect serial devices and recommend a startup profile.')
+    device_scan.add_argument('--dev-root', type=Path, default=Path('/dev'))
+    device_scan.add_argument('--sys-root', type=Path, default=Path('/sys/class/tty'))
+    device_scan.add_argument('--rules-path', type=Path, default=device_identification.DEFAULT_RULES_PATH)
+    device_scan.add_argument('--sample-policy', choices=DEVICE_SCAN_SAMPLE_CHOICES, default=device_identification.DEFAULT_SAMPLE_POLICY)
+    device_scan.add_argument('--sample-window-s', type=float, default=device_identification.DEFAULT_SAMPLE_WINDOW_S)
+    device_scan.add_argument('--max-sample-bytes', type=int, default=device_identification.DEFAULT_MAX_SAMPLE_BYTES)
+    device_scan.add_argument('--startup-profile', default=device_profiles.AUTO_PROFILE, choices=STARTUP_PROFILE_CHOICES)
+    device_scan.add_argument('--json', action='store_true')
+    device_scan.set_defaults(func=cmd_device_scan)
+
+    profile_matrix = sub.add_parser('startup-profiles', help='Show the startup profile capability matrix.')
+    profile_matrix.add_argument('--json', action='store_true')
+    profile_matrix.set_defaults(func=cmd_startup_profiles)
 
     status = sub.add_parser('status', help='Show current process status file.')
     status.add_argument('--run-root', type=Path, default=DEFAULT_RUN_ROOT)
     status.add_argument('--run-dir', type=Path)
     status.add_argument('--json', action='store_true')
     status.set_defaults(func=cmd_status)
+
+
+
+    bundle = sub.add_parser('bundle', help='Export a minimal incident bundle from the latest or specified run.')
+    bundle.add_argument('--run-root', type=Path, default=DEFAULT_RUN_ROOT)
+    bundle.add_argument('--run-dir', type=Path)
+    bundle.add_argument('--bundle-dir', type=Path)
+    bundle.add_argument('--json', action='store_true')
+    bundle.set_defaults(func=cmd_bundle)
 
     stop = sub.add_parser('stop', help='Stop the latest or specified run.')
     stop.add_argument('--run-root', type=Path, default=DEFAULT_RUN_ROOT)

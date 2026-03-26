@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+from datetime import datetime
 from pathlib import Path
 
+from tools.supervisor import incident_bundle
 from tools.supervisor import phase0_supervisor as sup
 
 
@@ -135,6 +138,228 @@ class Phase0SupervisorTest(unittest.TestCase):
             final_status = self.wait_for_state(status_path, 'stopped')
             process_states = {item['name']: item['state'] for item in final_status['processes']}
             self.assertEqual({'stopped'}, set(process_states.values()))
+
+
+    def test_bundle_command_marks_missing_runtime_logs_for_mock_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_root = Path(tmpdir)
+            start_cmd = [
+                sys.executable,
+                str(SCRIPT),
+                'start',
+                '--profile', 'mock',
+                '--detach',
+                '--run-root', str(run_root),
+                '--start-settle-s', '0.1',
+                '--poll-interval-s', '0.1',
+                '--stop-timeout-s', '2.0',
+            ]
+            start_res = subprocess.run(start_cmd, capture_output=True, text=True, check=False)
+            self.assertEqual(0, start_res.returncode, start_res.stderr or start_res.stdout)
+
+            manifest_path = self.wait_for_manifest(run_root)
+            run_dir = manifest_path.parent
+
+            stop_cmd = [
+                sys.executable,
+                str(SCRIPT),
+                'stop',
+                '--run-root', str(run_root),
+                '--timeout-s', '5.0',
+            ]
+            stop_res = subprocess.run(stop_cmd, capture_output=True, text=True, check=False)
+            self.assertEqual(0, stop_res.returncode, stop_res.stderr or stop_res.stdout)
+
+            bundle_cmd = [
+                sys.executable,
+                str(SCRIPT),
+                'bundle',
+                '--run-root', str(run_root),
+                '--json',
+            ]
+            bundle_res = subprocess.run(bundle_cmd, capture_output=True, text=True, check=False)
+            self.assertEqual(0, bundle_res.returncode, bundle_res.stderr or bundle_res.stdout)
+            summary = json.loads(bundle_res.stdout)
+            self.assertTrue(summary['bundle_incomplete'])
+            self.assertIn('nav.nav_timing', summary['missing_optional_keys'])
+            bundle_dir = Path(summary['bundle_dir'])
+            self.assertTrue((bundle_dir / 'bundle_summary.json').exists())
+            self.assertTrue((bundle_dir / 'bundle_summary.txt').exists())
+            self.assertTrue((bundle_dir / 'supervisor' / 'run_manifest.json').exists())
+            self.assertTrue((bundle_dir / 'child_logs' / 'uwnav_navd' / 'stdout.log').exists())
+            self.assertEqual(run_dir, bundle_dir.parents[1])
+
+
+
+    def test_bundle_export_marks_preflight_failed_stage_before_spawn(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            run_dir = root / 'reports' / 'supervisor_runs' / '2026-03-26' / '20260326_140000_6789'
+            child_dir = run_dir / 'child_logs' / 'uwnav_navd'
+            child_dir.mkdir(parents=True)
+            (child_dir / 'stdout.log').write_text('', encoding='utf-8')
+            (child_dir / 'stderr.log').write_text('', encoding='utf-8')
+
+            manifest = {
+                'run_id': '20260326_140000_6789',
+                'profile': 'bench',
+                'created_wall_time': '2026-03-26T14:00:00+08:00',
+                'processes': [
+                    {
+                        'name': 'uwnav_navd',
+                        'cwd': str(root / 'nav_core'),
+                        'required_paths': [],
+                        'log_files': {
+                            'stdout': str(child_dir / 'stdout.log'),
+                            'stderr': str(child_dir / 'stderr.log'),
+                        },
+                    }
+                ],
+            }
+            status = {
+                'run_id': manifest['run_id'],
+                'profile': 'bench',
+                'supervisor_state': 'failed',
+                'last_fault_event': 'preflight_failed',
+                'processes': [
+                    {
+                        'name': 'uwnav_navd',
+                        'state': 'not_started',
+                    }
+                ],
+            }
+            (run_dir / 'run_manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
+            (run_dir / 'process_status.json').write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding='utf-8')
+            (run_dir / 'last_fault_summary.txt').write_text('event=preflight_failed\n', encoding='utf-8')
+            (run_dir / 'supervisor_events.csv').write_text('mono_ns,event\n1,preflight_failed\n', encoding='utf-8')
+
+            summary = incident_bundle.export_run_bundle(run_dir)
+            self.assertEqual('preflight_failed_before_spawn', summary['run_stage'])
+            self.assertEqual('preflight_failed', summary['last_fault_event'])
+            self.assertTrue(any('零字节 child logs' in item for item in summary['triage_hints']))
+
+    def test_bundle_export_marks_missing_required_supervisor_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_dir = Path(tmpdir) / 'reports' / 'supervisor_runs' / '2026-03-26' / '20260326_130000_5678'
+            run_dir.mkdir(parents=True)
+
+            manifest = {
+                'run_id': '20260326_130000_5678',
+                'profile': 'mock',
+                'created_wall_time': '2026-03-26T13:00:00+08:00',
+                'processes': [],
+            }
+            (run_dir / 'run_manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
+
+            summary = incident_bundle.export_run_bundle(run_dir)
+            self.assertTrue(summary['bundle_incomplete'])
+            self.assertFalse(summary['required_ok'])
+            self.assertIn('supervisor.process_status', summary['missing_required_keys'])
+            self.assertIn('supervisor.last_fault_summary', summary['missing_required_keys'])
+            self.assertIn('supervisor.supervisor_events', summary['missing_required_keys'])
+            bundle_dir = Path(summary['bundle_dir'])
+            self.assertTrue((bundle_dir / 'bundle_summary.json').exists())
+            self.assertTrue((bundle_dir / 'bundle_summary.txt').exists())
+
+    def test_bundle_export_collects_runtime_logs_from_manifest_roots(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            run_dir = root / 'reports' / 'supervisor_runs' / '2026-03-26' / '20260326_120000_1234'
+            run_dir.mkdir(parents=True)
+
+            nav_cfg = root / 'nav_core' / 'config' / 'nav_daemon.yaml'
+            nav_cfg.parent.mkdir(parents=True)
+            nav_cfg.write_text(
+                '\n'.join([
+                    'logging:',
+                    f'  base_dir: "{root / "nav_data"}"',
+                    '  split_by_date: true',
+                    '',
+                ]),
+                encoding='utf-8',
+            )
+
+            nav_log_dir = root / 'nav_data' / '2026-03-26' / 'nav'
+            nav_log_dir.mkdir(parents=True)
+            (nav_log_dir / 'nav_events.csv').write_text('mono_ns,event\n1,device_bind_state_changed\n', encoding='utf-8')
+            (nav_log_dir / 'nav_timing.bin').write_bytes(b'nav_timing')
+            (nav_log_dir / 'nav_state.bin').write_bytes(b'nav_state')
+
+            ctrl_root = root / 'ctrl_root'
+            (ctrl_root / 'logs' / 'nav').mkdir(parents=True)
+            (ctrl_root / 'logs' / 'control').mkdir(parents=True)
+            (ctrl_root / 'logs' / 'telemetry').mkdir(parents=True)
+            (ctrl_root / 'logs' / 'nav' / 'nav_events.csv').write_text('mono_ns,event\n2,nav_view_decision_changed\n', encoding='utf-8')
+            (ctrl_root / 'logs' / 'control' / 'control_events.csv').write_text('mono_ns,event\n3,guard_reject\n', encoding='utf-8')
+            control_loop = ctrl_root / 'logs' / 'control' / 'control_loop_20260326_120001.csv'
+            telemetry_timeline = ctrl_root / 'logs' / 'telemetry' / 'telemetry_timeline_20260326_120001.csv'
+            telemetry_events = ctrl_root / 'logs' / 'telemetry' / 'telemetry_events_20260326_120001.csv'
+            control_loop.write_text('MonoNS\n1\n', encoding='utf-8')
+            telemetry_timeline.write_text('telemetry_stamp_ns\n1\n', encoding='utf-8')
+            telemetry_events.write_text('stamp_ns\n1\n', encoding='utf-8')
+
+            ts = datetime.fromisoformat('2026-03-26T12:00:00+08:00').timestamp() + 10.0
+            for path in (control_loop, telemetry_timeline, telemetry_events):
+                os.utime(path, (ts, ts))
+
+            child_dir = run_dir / 'child_logs' / 'uwnav_navd'
+            child_dir.mkdir(parents=True)
+            (child_dir / 'stdout.log').write_text('nav stdout\n', encoding='utf-8')
+            (child_dir / 'stderr.log').write_text('nav stderr\n', encoding='utf-8')
+
+            manifest = {
+                'run_id': '20260326_120000_1234',
+                'profile': 'bench',
+                'created_wall_time': '2026-03-26T12:00:00+08:00',
+                'processes': [
+                    {
+                        'name': 'uwnav_navd',
+                        'cwd': str(root / 'nav_core'),
+                        'required_paths': [str(root / 'nav_core' / 'build' / 'bin' / 'uwnav_navd'), str(nav_cfg)],
+                        'log_files': {
+                            'stdout': str(child_dir / 'stdout.log'),
+                            'stderr': str(child_dir / 'stderr.log'),
+                        },
+                    },
+                    {
+                        'name': 'nav_viewd',
+                        'cwd': str(ctrl_root),
+                        'required_paths': [],
+                        'log_files': {'stdout': None, 'stderr': None},
+                    },
+                    {
+                        'name': 'pwm_control_program',
+                        'cwd': str(ctrl_root),
+                        'required_paths': [],
+                        'log_files': {'stdout': None, 'stderr': None},
+                    },
+                    {
+                        'name': 'gcs_server',
+                        'cwd': str(ctrl_root),
+                        'required_paths': [],
+                        'log_files': {'stdout': None, 'stderr': None},
+                    },
+                ],
+            }
+            (run_dir / 'run_manifest.json').write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding='utf-8')
+            (run_dir / 'process_status.json').write_text(json.dumps({'run_id': manifest['run_id'], 'profile': 'bench', 'supervisor_state': 'failed'}, ensure_ascii=False, indent=2), encoding='utf-8')
+            (run_dir / 'last_fault_summary.txt').write_text('event=preflight_failed\n', encoding='utf-8')
+            (run_dir / 'supervisor_events.csv').write_text('mono_ns,event\n1,supervisor_started\n', encoding='utf-8')
+
+            summary = incident_bundle.export_run_bundle(run_dir)
+            self.assertTrue(summary['required_ok'])
+            self.assertIn('events.uwnav_navd.nav_events', [item['key'] for item in summary['artifacts'] if item['status'] == 'copied'])
+            self.assertTrue(summary['merge_robot_timeline']['ready'])
+
+            bundle_dir = Path(summary['bundle_dir'])
+            self.assertTrue((bundle_dir / 'events' / 'uwnav_navd' / 'nav_events.csv').exists())
+            self.assertTrue((bundle_dir / 'events' / 'nav_viewd' / 'nav_events.csv').exists())
+            self.assertTrue((bundle_dir / 'events' / 'pwm_control_program' / 'control_events.csv').exists())
+            self.assertTrue((bundle_dir / 'nav' / 'nav_timing.bin').exists())
+            self.assertTrue((bundle_dir / 'nav' / 'nav_state.bin').exists())
+            self.assertTrue(any(path.name.startswith('control_loop_') for path in (bundle_dir / 'control').iterdir()))
+            self.assertTrue(any(path.name.startswith('telemetry_timeline_') for path in (bundle_dir / 'telemetry').iterdir()))
+            self.assertTrue(any(path.name.startswith('telemetry_events_') for path in (bundle_dir / 'telemetry').iterdir()))
 
 
 if __name__ == '__main__':

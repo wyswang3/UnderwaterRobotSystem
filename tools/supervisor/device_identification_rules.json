@@ -1,0 +1,144 @@
+{
+  "devices": [
+    {
+      "device_type": "imu",
+      "display_name": "IMU",
+      "by_id_contains": [
+        "imu",
+        "wit",
+        "hwt9073",
+        "hwt905",
+        "wt901"
+      ],
+      "vendor_ids": [
+        "10c4"
+      ],
+      "product_ids": [
+        "ea60"
+      ],
+      "serial_contains": [
+        "imu"
+      ],
+      "manufacturer_contains": [
+        "wit",
+        "silicon labs"
+      ],
+      "product_contains": [
+        "imu",
+        "wit",
+        "hwt9073",
+        "hwt905",
+        "wt901"
+      ],
+      "baud_candidates": [
+        230400,
+        115200
+      ],
+      "sample_support": {
+        "static_identity": "candidate_only",
+        "dynamic_probe": "partial"
+      },
+      "notes": [
+        "真实样本已确认离线导出 CSV 会稳定包含 AccX/AsX/HX/AngX 这组字段，但这不是 live serial 被动采样格式。",
+        "当前 runtime 主链使用 WIT Modbus-RTU 轮询，IMU 被动采样可能没有字节，因此不能把动态探测当成 IMU 主判据。",
+        "VID/PID、manufacturer、product 目前仍属于候选静态白名单，还需要真实 bench 的 by-id/sysfs 样本继续收紧。"
+      ]
+    },
+    {
+      "device_type": "volt32",
+      "display_name": "Volt32",
+      "by_id_contains": [
+        "volt",
+        "volt32",
+        "adc",
+        "voltage"
+      ],
+      "serial_contains": [
+        "volt",
+        "adc"
+      ],
+      "manufacturer_contains": [
+        "volt",
+        "adc"
+      ],
+      "product_contains": [
+        "volt",
+        "adc",
+        "voltage"
+      ],
+      "baud_candidates": [
+        115200
+      ],
+      "sample_support": {
+        "static_identity": "candidate_only",
+        "dynamic_probe": "partial"
+      },
+      "notes": [
+        "真实样本已确认导出 CSV 采用 CH0..CH15 列结构，且值后缀稳定出现 V/A。",
+        "现场 live serial 识别仍主要依赖 CHn: 文本行语法；当前缺少 Volt32 原始串口行日志，所以这一条只能算部分样本支撑。",
+        "静态 by-id、VID/PID、manufacturer、product 目前仍是候选规则，需要真实现场快照继续校准。"
+      ]
+    },
+    {
+      "device_type": "dvl",
+      "display_name": "DVL",
+      "by_id_contains": [
+        "dvl",
+        "hover",
+        "h1000"
+      ],
+      "serial_contains": [
+        "dvl",
+        "hover",
+        "h1000"
+      ],
+      "manufacturer_contains": [
+        "dvl",
+        "hover"
+      ],
+      "product_contains": [
+        "dvl",
+        "hover",
+        "h1000"
+      ],
+      "baud_candidates": [
+        115200
+      ],
+      "sample_support": {
+        "static_identity": "candidate_only",
+        "dynamic_probe": "sample_backed"
+      },
+      "notes": [
+        "真实 dvl_raw_lines 样本已经确认 SA/TS/BI/BS/BE/BD 是稳定高频回复 token，可作为强动态规则。",
+        "RawLine CSV 头和 SensorID=DVL_H1000 也来自真实样本，可作为导出样本解释证据。",
+        "静态 by-id、VID/PID、manufacturer、product 仍缺真实快照，只能先保留为候选白名单。"
+      ]
+    },
+    {
+      "device_type": "usbl",
+      "display_name": "USBL",
+      "by_id_contains": [
+        "usbl"
+      ],
+      "serial_contains": [
+        "usbl"
+      ],
+      "manufacturer_contains": [
+        "usbl"
+      ],
+      "product_contains": [
+        "usbl"
+      ],
+      "baud_candidates": [
+        115200
+      ],
+      "sample_support": {
+        "static_identity": "candidate_only",
+        "dynamic_probe": "candidate_only"
+      },
+      "notes": [
+        "本轮没有 USBL 真实样本，仍停留在占位规则。"
+      ]
+    }
+  ]
+}

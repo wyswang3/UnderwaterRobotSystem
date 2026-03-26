@@ -5,7 +5,175 @@
 - 状态：Authoritative
 - 说明：Codex 当前阶段恢复上下文的高密度交接摘要。
 
-## 0. 2026-03-25 覆盖更新
+## 0. 2026-03-26 覆盖更新
+
+从这一轮开始，核心 C++ 主链明确视为高风险区域，默认执行原则已经收紧：
+
+1. 必须先区分外围模块和核心主链。
+2. 外围模块优先继续推进：
+   - supervisor / launcher
+   - Python 传感器工具链
+   - GCS / UI
+   - 日志解析工具
+   - incident bundle
+   - ROS2 外围桥接
+3. 核心主链包括：
+   - `uwnav_navd`
+   - `nav_viewd`
+   - `ControlGuard`
+   - `ControlLoop`
+   - `gcs_server` 核心行为
+   - `NavState / NavStateView / TelemetryFrameV2` 语义相关部分
+4. 若必须改核心 C++ 主链，本轮只允许改一个小点，并且必须：
+   - 先做最小设计或代码审查
+   - 只动一个核心 authority 模块
+   - 每次都做最小可回归验证
+   - 不顺手重构
+5. 当前阶段优先策略：
+   - 继续优先推进外围模块
+   - 导航侧优先补日志、报错检查、状态暴露与调试能力
+   - 不先大改 ESKF 结构和核心融合逻辑
+   - 等实地实验条件具备后，再集中优化导航算法本身
+6. 新增必须维护的操作文档：
+   - `docs/runbook/local_debug_and_field_startup_guide.md`
+7. 后续只要涉及核心 C++ 主链改动，收口时必须额外说明：
+   - 为什么必须改这个点
+   - 为什么这轮只改这个点
+   - 做了哪些验证
+   - 哪些风险暂时没动
+
+本轮因此先做 docs/runbook 基线收口，不把前一轮发现的核心链路小 drift 直接并入同轮修复；若后续要修，必须按“单模块、单点、单轮最小回归”执行。
+
+## 0.05 2026-03-26 追加更新：外围排障闭环 Phase 1 incident bundle
+
+本轮只触碰 `UnderwaterRobotSystem` 的 supervisor / tooling / runbook，不触碰 `uwnav_navd`、`nav_viewd`、`ControlGuard`、`ControlLoop` 或 `gcs_server` 核心 authority 行为。
+
+已落地：
+
+1. 新增 `tools/supervisor/incident_bundle.py`，把 supervisor run files、child logs、低频事件入口和现有高频日志入口按固定目录导出到 `<run_dir>/bundle/<timestamp>/`。
+2. `tools/supervisor/phase0_supervisor.py` 新增 `bundle` 子命令，支持：
+   - 默认导出 latest run
+   - 指定 `--run-dir`
+   - 指定 `--bundle-dir`
+   - `--json` 输出 `bundle_summary`
+3. bundle 当前固定产物：
+   - `bundle_summary.json`
+   - `bundle_summary.txt`
+   - `supervisor/`
+   - `child_logs/`
+   - `events/`
+   - `nav/`
+   - `control/`
+   - `telemetry/`
+4. required / optional 规则已落地：
+   - required：`run_manifest.json`、`process_status.json`、`last_fault_summary.txt`、`supervisor_events.csv`
+   - optional：child logs、`nav_events.csv`、`control_events.csv`、`comm_events.csv`、`nav_timing.bin`、`nav_state.bin`、`control_loop_*.csv`、`telemetry_timeline_*.csv`、`telemetry_events_*.csv`
+   - 缺失时 bundle 仍导出，但明确标成 `bundle_status=incomplete`
+5. 若 `nav/control/telemetry` 输入齐全，`bundle_summary` 会额外给出 `merge_robot_timeline.ready` 与 `command_hint`；本轮仍不在 supervisor 内直接代跑 merge。
+
+本轮验证：
+
+- `python3 -m py_compile tools/supervisor/phase0_supervisor.py tools/supervisor/incident_bundle.py tools/supervisor/tests/test_phase0_supervisor.py`：通过
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor`：通过（7 个用例）
+- 真实 `mock start -> stop -> bundle --json`：通过，并确认缺高频日志时 `bundle_status=incomplete`
+
+## 0.06 2026-03-26 追加更新：真实 bench run dir bundle 验证与最小归档 helper
+
+本轮继续只触碰 `UnderwaterRobotSystem` 的 supervisor / tooling / runbook，不触碰核心 C++ authority 行为。
+
+已确认：
+
+1. 本机在 `2026-03-26` 的真实 `bench` preflight 仍被设备阻塞：
+   - `bench_device_ttyUSB0`
+   - `bench_device_ttyACM0`
+2. 因此前提设备未就绪，真实 `bench safe smoke` 还不能写成“已完成”；当前结论仍然是 failure-path 样本。
+3. 但真实 `start --profile bench --detach` 已成功生成 run dir：
+   - `/tmp/phase0_supervisor_bench_smoke/2026-03-26/20260326_201943_37835`
+4. 从该真实 `run_dir` 执行 `bundle --run-dir ... --json`：通过，并确认：
+   - `required_ok=true`
+   - `bundle_status=incomplete`
+   - `run_stage=preflight_failed_before_spawn`
+   - 零字节 `child_logs` 被正确收集
+   - `events/nav/control/telemetry` 缺失符合预期
+5. 新增 `tools/supervisor/bundle_archive.py`，可把现有 bundle 目录最小打包成同级 `<bundle_dir>.tar.gz`，不重新导出、不上传。
+6. `docs/runbook/incident_bundle_guide.md` 与 `docs/runbook/local_debug_and_field_startup_guide.md` 已同步写明：
+   - `preflight_failed_before_spawn + required_ok=true` 仍然表示 bundle 导出成功
+   - 真实 failure-path 样本的零字节 child logs / 缺失高频日志属于预期
+   - 新的本地归档 helper 用法
+
+## 0.07 2026-03-26 追加更新：设备识别辅助工具与分级启动 profile
+
+本轮继续只触碰 `UnderwaterRobotSystem` 的 supervisor / tooling / runbook，不触碰 `uwnav_navd`、`nav_viewd`、`ControlGuard`、`ControlLoop` 或 `gcs_server` 核心 authority 行为。
+
+已落地：
+
+1. 新增 `tools/supervisor/device_identification.py`、`tools/supervisor/device_identification_rules.json`、`tools/supervisor/device_profiles.py`。
+2. `phase0_supervisor.py` 新增：
+   - `device-scan`
+   - `startup-profiles`
+   - `--startup-profile auto|...`
+3. `bench preflight` 现在会在原有设备节点检查之外，额外输出：
+   - `device_inventory`
+   - `device_recommendations`
+   - `startup_profile`
+   - `device_binding_ambiguity`
+   - `startup_profile_gate`
+4. 当前 gate 规则已经落地：
+   - 若识别结果是 `no_sensor` / `volt_only` / `reserved`，或存在歧义，`bench preflight` 直接失败
+   - 只有 `launch_mode=bench_safe_smoke` 的 `startup_profile` 才允许继续做当前 `bench` 链路
+5. `run_manifest.json`、`process_status.json`、`last_fault_summary.txt` 已同步暴露：
+   - `startup_profile`
+   - `startup_profile_source`
+   - `recommended_startup_profile`
+   - `device_identification` / `device_counts` / `recommended_bindings`
+6. 当前最小实现只做 recommendation / gate / 记录，不重写 `bench` 的 authority 进程图。
+
+本轮验证：
+
+- `python3 -m py_compile tools/supervisor/phase0_supervisor.py tools/supervisor/device_profiles.py tools/supervisor/device_identification.py ...`：通过
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor tools.supervisor.tests.test_bundle_archive tools.supervisor.tests.test_device_identification`：通过（17 个用例）
+- `python3 tools/supervisor/phase0_supervisor.py startup-profiles --json`：通过
+- `python3 tools/supervisor/phase0_supervisor.py device-scan --sample-policy off --json`：通过，当前主机返回 `no_sensor`
+- `python3 tools/supervisor/phase0_supervisor.py preflight --profile bench --startup-profile auto --run-root /tmp/phase0_supervisor_device_profile_preflight`：按预期因为缺设备节点 + `startup_profile_gate=no_sensor` 失败
+
+
+## 0.08 2026-03-26 追加更新：设备识别规则已按真实样本校准
+
+本轮继续只触碰 `UnderwaterRobotSystem` 的 supervisor / tooling / runbook，不触碰核心 C++ authority 行为。
+
+已确认：
+
+1. 已用真实样本校准 IMU / Volt32 / DVL 规则，不再只靠经验 token。
+2. DVL 的 `SA/TS/BI/BS/BE/BD` reply token 已升级成强动态规则。
+3. Volt32 的 `CH0..CH15` 导出 CSV 结构与 `V/A` 值后缀已升级成样本支撑；`CHn:` live serial 行语法仍只是 partial 规则。
+4. IMU 已确认当前 runtime 是 `WIT Modbus-RTU` 轮询，因此被动动态探测不能再当主判据；导出 CSV 字段集合已作为样本支撑，旧 `0x55` 同步帧只保留兼容候选位。
+5. `device_identification.py` 现在会输出：
+   - `resolution.reason`
+   - `resolution.top_candidate`
+   - `rule_support`
+   - 更严格的 `unknown / ambiguous` 退化行为
+6. `device_identification_rules.json` 已写明每类设备的样本支撑等级与剩余缺口。
+7. `tools/supervisor/tests/test_device_identification.py` 已改成样本驱动验证，覆盖：
+   - IMU 样本
+   - Volt32 样本
+   - DVL 样本
+   - unknown 样本
+   - mixed-sample ambiguity
+   - sample-backed profile recommendation
+
+本轮验证：
+
+- `python3 -m py_compile tools/supervisor/device_identification.py tools/supervisor/device_profiles.py tools/supervisor/phase0_supervisor.py tools/supervisor/tests/test_device_identification.py`：通过
+- `python3 -m unittest tools.supervisor.tests.test_device_identification`：通过（10 个用例）
+
+当前剩余风险：
+
+1. 还没有真实 `/dev/serial/by-id` / sysfs 快照去继续收紧 IMU / Volt32 / DVL 的静态白名单。
+2. IMU live serial 主探测仍未实现；当前只能明确“被动采样不足时宁可 unknown，也不硬判”。
+3. Volt32 还缺原始串口行日志，所以 `CHn:` 规则仍只能算 partial。
+4. USBL 仍无真实样本。
+
+## 0.1 2026-03-25 覆盖更新
 
 当前最新优先级已从“只围绕 Phase 0 supervisor 收口”推进到“日志体系 Phase B 第一批 C++ 低频结构化事件落地”，但边界不变：
 
@@ -214,7 +382,7 @@ mock 回归结果：
 ## 6. 当前风险
 
 1. 本轮只补了 `uwnav_navd`、`nav_viewd`、`ControlGuard` 的第一批低频事件；`pwm_control_program` 其余边界和 `gcs_server` 仍未进入统一事件日志。
-2. `nav_events.csv` 与 `control_events.csv` 还没有通过 supervisor manifest / incident bundle 自动整合。
+2. supervisor 已能最小自动整合 run files、child logs、低频事件入口与现有高频日志入口，但还没有直接一键代跑 `merge_robot_timeline.py` 或输出压缩归档。
 3. 当前 `run_id` 在 C++ 侧优先读 `ROV_RUN_ID`，若未统一注入则仍会退回本地 fallback，跨进程完全一致性还有待后续收口。
 4. 真实 `bench` / 实机环境还没有用新的结构化事件日志跑一轮现场 smoke。
 5. 当前仍保留不少 stdout/stderr 调试输出，后续要避免和新的结构化事件语义重叠失控。
@@ -226,7 +394,7 @@ mock 回归结果：
    - `pwm_control_program` 的 controller / allocator / PWM 边界
    - `gcs_server` 的 command lifecycle / ack / inject 结果
 3. 在第一批事件点稳定后，再进入 Phase C：统一 nav / control / comm 的低频状态快照。
-4. incident bundle 自动整合仍放在后续，不要在本轮已落地基础上顺手扩成全链路日志平台。
+4. 下一步要把新的 bundle 导出入口接到真实 bench / safe smoke 故障反馈流程里，但不要在此基础上顺手扩成复杂日志平台。
 
 ## 8. 下次启动优先阅读顺序
 
@@ -236,6 +404,8 @@ mock 回归结果：
 4. `docs/project_memory.md`
 5. `docs/architecture/upgrade_strategy.md`
 6. 相关接口契约与 runbook，优先：
+   - `docs/runbook/local_debug_and_field_startup_guide.md`
+   - `docs/runbook/incident_bundle_guide.md`
    - `docs/runbook/supervisor_phase0_operator_guide.md`
    - `docs/runbook/usb_reconnect_bench_plan.md`
 
