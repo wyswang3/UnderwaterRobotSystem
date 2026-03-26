@@ -1,0 +1,239 @@
+# configs/nav.yaml
+# 统一约定：
+# - IMU 传感器坐标：S (RFU)  X:Right, Y:Forward, Z:Up
+# - 机体坐标：      B (FRD)  X:Forward, Y:Right, Z:Down
+# - 导航坐标：      N (ENU)  X:East, Y:North, Z:Up
+
+deadreckon:
+  # ------------------------------------------------------------------------
+  # 0) 死算模式选择：
+  #    - IMU_only     : 只用 IMU 做惯导积分（完全不看 DVL）
+  #    - DVL_BE_only  : 只用 DVL_BE 的 ENU 速度积分位置（不看 IMU，加速度/姿态都不用）
+  #    - IMU+DVL      : IMU 提供姿态/辅助信息，DVL 提供速度，做“混合死算”基线
+  # ------------------------------------------------------------------------
+  mode: "IMU+DVL"          # IMU_only / DVL_BE_only / IMU+DVL
+
+  # ------------------------------------------------------------------------
+  # 1) DVL 数据源选择
+  #    - 对于 DVL_BE_only / IMU+DVL，一般推荐使用 BE（ENU 速度）
+  #    - 若后续想做 IMU+BI 模式，可以在代码里根据 dvl_src == "BI" 走 FRD->ENU 变换
+  # ------------------------------------------------------------------------
+  dvl_src: "BI"            # "BI" | "BE"
+
+  # 是否使用预处理后的 CSV（out/proc/<run_id> 下）
+  use_processed_imu: true
+  use_processed_dvl: true
+
+  # 初始位姿（ENU）
+  init_pose:
+    E: 0.0
+    N: 0.0
+    U: 0.0          # ENU 中 U 向上为正；水面处可以认为 U=0
+    yaw_deg: 0.0
+    pitch_deg: 0.0
+    roll_deg: 0.0
+
+  # 是否使用 IMU 姿态角参与 dead-reckon
+  # - IMU_only     : 必须 true，才有意义（IMU 积分姿态+速度+位置）
+  # - DVL_BE_only  : 代码中可以忽略此开关（只看 DVL_BE 速度）
+  # - IMU+DVL      : true -> IMU 提供姿态（例如处理 BI 或配合深度）；BE 场景下也可辅助 U 轴
+  use_imu_angles: true
+
+  # 允许的最大时间间隔（超过则认为轨迹中断）
+  max_gap_s: 0.05
+
+
+
+eskf:
+  mode: "full_ins"
+
+  # ===================== 0) 姿态 / 坐标轴相关 =====================
+  imu_rollpitch_source: "processed"
+  imu_yaw_source: "processed"
+  init_yaw_source: "imu"
+  init_yaw_rad: 0.0
+  use_dvl_yaw_from_vel: false
+
+  imu_acc_source:  "processed"
+  imu_gyro_source: "processed"
+  imu_acc_kind: "linear"
+
+  imu_raw_g_to_mps2: 9.78
+  gravity:          9.78
+  yaw_sign: 1.0
+
+  # ===================== 1) IMU 噪声 =====================
+  imu_noise:
+    sigma_acc_mps2: 0.05
+    sigma_gyro_rad_s: 0.006
+    sigma_ba_rw_mps2_sqrt_s: 3.0e-5
+    sigma_bgz_rw_rad_s_sqrt_s: 2.0e-5
+
+  # ===== 1.5) 过程噪声（激进版本：承认动力学模型不靠谱） =====
+  q_vel: 0.05        # 再放大 10 倍，让速度状态更容易被 DVL 拉动
+  q_yaw: 0.005      # yaw 过程噪声也放宽，方便和 DVL 一起调整
+  q_ba:  1.0e-3     # bias 允许更快漂移，去吸收 IMU 的系统误差
+  q_bgz: 1.0e-6
+
+  # ===== 2) 初始协方差也放宽一点 =====
+  init_cov:
+    p0_m:     5.0      # 初始位置不自信
+    v0_mps:   5.5      # 初始速度不自信
+    yaw0_rad: 1.0      # 初始 yaw 允许 ~60°
+    ba0_mps2: 1.0
+    bgz0_rad_s: 0.1
+
+
+  # ===================== 3) DVL 噪声模型 =====================
+  dvl_noise:
+    enable_speed_dependent: true
+    percent: 0.010
+    floor_bi_mps: 0.02
+    floor_be_mps: 0.03
+    be_inflate: 2.0
+
+  # ===================== 4) DVL 显式协方差 =====================
+  sigma_dvl_xy_mps: 0.25
+  sigma_dvl_z_mps:  0.50
+
+  # ===================== 5) DVL 匹配策略 & gate 开关 =====================
+  dvl_match_policy: "anchor_next"
+  dvl_match_window_s: 0.08
+  dvl_drop_older_than_s: 1.0
+
+  require_gate_ok:   true
+  require_speed_ok:  true
+  require_valid:     true
+
+  # ===================== 6) DVL 使用策略 =====================
+  min_speed_for_yaw_dvl: 0.08
+
+  use_dvl_BE_vel: true
+  use_dvl_BI_vel: true
+
+  min_speed_for_dvl_update: 0.05
+  max_gap_s: 0.05
+
+  # ===================== 7) 输出后处理 =====================
+  flip_n_axis: false     # N 轴反向：当前数据中，“数学 N” 和 “你心里的北向”相反，所以在输出里翻转
+  smooth_traj:
+    smooth_traj_enable: true
+    smooth_traj_window_samples: 9
+
+  # ===================== 8) local_vel 调试参数 =====================
+  local_vel:
+    vel_trust_alpha: 0.0
+    keep_pos_from_imu: false
+  # ===================== 9) eskf诊断开关 =====================
+  focus_enabled: true
+  focus_record_every_used: 1
+  focus_record_on_trigger_always: true
+  focus_ratio_warn: 5.0
+  focus_vpre_warn_mps: 3.0
+  focus_nis_warn: 100.0
+  focus_out_csv: "out/diag/2026-01-xx_run01_focus.csv"
+  print_summary: true
+
+
+graph:
+  # --------- 数据与初值策略 ---------
+  use_eskf_init: false         # 先不用 ESKF，直接用 dead-reckon 初值
+  node_timebase: "imu"         # 目前只实现 imu 基准
+  verbose: true                # 打印 [GRAPH] / [GN] 诊断信息
+
+  # --------- 优化器参数（Gauss-Newton）---------
+  max_iterations: 10
+  lambda_init: 1.0
+  lambda_min: 1.0e-6
+  lambda_max: 1.0e3
+
+  # --------- 鲁棒核设置 ---------
+  use_robust_loss: true
+  robust_loss_type: "huber"
+  robust_loss_param: 1.0
+
+  # --------- 节点数量限制（关键帧）---------
+  keyframe_stride: 50
+  max_nodes: 200
+
+  # --------- 数据裁剪（调试用）---------
+  max_imu_samples: 27000
+  max_dvl_samples: 0
+
+  # --------- 因子使用开关 ---------
+  use_dvl_BE_vel: false
+  use_dvl_BI_vel: false
+  use_dvl_yaw_from_vel: false
+  enable_imu_factor: true
+
+
+frames:
+  # --------------------------------------------------------------------------
+  # 1. ESKF 内部约定
+  # --------------------------------------------------------------------------
+  eskf_nav: "ENU"          # X=East, Y=North, Z=Up+
+  eskf_body: "FRD"         # X=Forward, Y=Right, Z=Down
+
+  # 输出/绘图约定
+  output_nav: "ENU"        # 输出统一 ENU，depth 用 D=-U 推出来即可
+
+  # --------------------------------------------------------------------------
+  # 2. IMU（原始测量到 ESKF-body 的映射）
+  # --------------------------------------------------------------------------
+  imu:
+    acc_units: "g"
+    gyro_units: "deg_s"
+
+    axis_map:
+      - [ 0, 1,  0 ]   # X_b = Y_s (Forward)
+      - [ 1, 0,  0 ]   # Y_b = X_s (Right)
+      - [ 0, 0, -1 ]   # Z_b = -Z_s (Down)
+    z_positive: "up"       # 原始 Z_s 向上为正
+
+  # --------------------------------------------------------------------------
+  # 3. DVL BI（体速度）
+  # --------------------------------------------------------------------------
+  dvl_bi:
+    units: "mps"
+    frame: "FRD"
+    axis_map:
+      - [ 1, 0, 0 ]
+      - [ 0, 1, 0 ]
+      - [ 0, 0, 1 ]
+    z_positive: "down"
+
+  # --------------------------------------------------------------------------
+  # 4. DVL BE（ENU 速度）
+  # --------------------------------------------------------------------------
+  dvl_be:
+    units: "mps"
+    frame: "ENU"           # 保持 ENU
+    z_positive: "up"       # Up 为正（和 ESKF nav 一致）
+
+    # nav = ENU 时，不再需要把 Vu->Down 翻号
+    convert_vu_up_to_down: false
+
+
+dvl_gate:
+  hz: 10
+
+  # 对齐 DvlPreprocessConfig（和现在 dvl_processing.py 保持一致）
+  speed_min_m_s: 0.05
+  speed_max_m_s: 2.0
+
+  dv_axis_max_m_s: 0.20     # m/s per sample @10Hz
+  dv_xy_max_m_s: 0.25       # m/s per sample @10Hz
+  be_vu_abs_max_m_s: 0.30   # m/s (tank)
+
+  # 速度帧类型，只处理 BI/BE
+  vel_src_set: ["BI", "BE"]
+
+  # 是否保留 GateOk=False 的速度帧到 df_all（保留=便于回放诊断；下游用 GateOk 过滤）
+  keep_all_vel_rows: true
+
+  # 是否保留 mixed frames 到 df_stream（审计用）
+  keep_stream: true
+
+  # 这两个“业务条件”目前在 dvl_processing.py 中可逐步落地
+  require_speed_ok: true
+  require_bottom_track: true   # 对应 IsWaterMass==False（底跟踪）

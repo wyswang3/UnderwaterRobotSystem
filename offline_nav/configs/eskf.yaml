@@ -1,0 +1,168 @@
+# configs/eskf.yaml
+#
+# 针对 2026-01-06 这次实验的数据：
+#   IMU: WIT 9073-Modbus, ~100 Hz
+#   DVL: H1000, min_tb 处理后 ~1 Hz
+#
+# 该文件在原 default.yaml 的基础上，增加了 ESKF 所需参数。
+# 后续 cli.py 可以根据 run.mode = "baseline" / "eskf" 选择不同算法。
+
+# ========================= 基本数据源配置 =========================
+experiment:
+  # 实验根目录（按你现在的结构）
+  exp_root: "/home/wys/水下机器人实验数据/2026-01-06/2026-01-06"
+
+  # DVL / IMU 文件（可以用 glob，也可以写死）
+  dvl_glob: "dvl/dvl_speed_min_tb_20260104_195317.csv"
+  imu_glob: "imu/min_imu_tb_20260104_195323.csv"
+
+timebase:
+  # 当前我们都使用 MonoS 作为时间轴
+  imu_time_col: "MonoS"
+  dvl_time_col: "MonoS"
+
+units:
+  # IMU 加速度是否以 g 为单位存储
+  imu_acc_in_g: true
+  # IMU 角速度是否以 deg/s 存储（若 csv 里已是 rad/s 则改为 false）
+  imu_gyro_in_deg_s: true
+  # g 到 m/s^2 的换算因子（你之前说用 9.78，这里先写 9.78）
+  g_to_mps2: 9.78
+
+# ========================= 静止窗配置（用于统计噪声与 bias） =========================
+static_window:
+  # 对这次实验，我们已经人工确认 [2210.936, 2211.936] 这一段比较稳定
+  mode: "manual"         # "manual" / "auto"
+  manual_t0_s: 2210.936  # 静止窗起点（s，MonoS）
+  manual_t1_s: 2211.936  # 静止窗终点（s，MonoS）
+
+  # auto 模式用不到这两个，可以先保留默认
+  search_after_dvl_start_s: 0.0
+  window_len_s: 1.0
+
+# ========================= 运行模式与输出 =========================
+run:
+  # "baseline" -> 只用 dead-reckon
+  # "eskf"     -> IMU+DVL ESKF 融合
+  mode: "eskf"
+
+  # 结果输出目录
+  out_dir: "results_eskf"
+
+# ========================= baseline DR 参数（保持原样即可） =========================
+baseline:
+  gravity_mps2: [0.0, 0.0, -9.80665]
+
+  # DVL 使用策略
+  prefer_be: true
+  use_bi_if_no_be: true
+
+  # DVL -> body 外参 (yaw, pitch, roll in deg)，目前先当作 0
+  R_bd_deg: [0.0, 0.0, 0.0]
+
+  # 位置积分模式： "zoh" or "trapezoid"
+  integrate: "zoh"
+
+  # 速度绝对值 sanity gate
+  max_abs_speed_mps: 5.0
+
+  # 是否从静止窗估计并扣除 DVL bias（baseline 默认先关掉，保留“原始行为”）
+  dvl_bias_from_static: false
+  min_static_dvl_samples: 3
+
+  # DVL 速度鲁棒滤波（在 baseline 暂时关闭）
+  robust_speed_filter: false
+  median_window: 3
+  speed_jump_thresh_mps: 0.20
+  smooth_window: 3
+
+
+# ========================= ESKF 配置 =========================
+eskf:
+  # ---------- 1) 重力 ----------
+  gravity_mps2: [0.0, 0.0, -9.80665]
+
+  # ---------- 2) IMU 噪声模型 ----------
+  imu:
+    # 2.1 静止窗估计得到的 gyro bias（rad/s）
+    # [static] gyro bias (rad/s): [-0.01221245 -0.00034115 -0.01484681]
+    gyro_bias_init_rad_s: [-0.01221245, -0.00034115, -0.01484681]
+
+    # 2.2 测量噪声 std（离散，每个采样周期），来自 static stats：
+    # [static] gyro std  (rad/s): [0.01702395 0.01445789 0.00208526]
+    gyro_noise_std_rad_s: [0.0171, 0.0145, 0.0021]
+
+    # [static] acc  std  (m/s^2): [0.02606034 0.05542562 0.02408569]
+    acc_noise_std_mps2: [0.0261, 0.0554, 0.0241]
+
+    # 2.3 bias 随机游走（连续时间，近似单位：per sqrt(s)）
+    # 这里先给一个偏保守初值，后续可以根据轨迹表现再调大/调小。
+    gyro_bias_rw_std_rad_sqrt_s: [1.0e-4, 1.0e-4, 1.0e-4]
+    acc_bias_rw_std_mps2_sqrt_s: [5.0e-4, 5.0e-4, 5.0e-4]
+
+    # 2.4 IMU 采样周期（用于离散化 Q），这里取 stats 中位数 ~0.0102 s
+    dt_nominal_s: 0.0102
+
+  # ---------- 3) DVL 噪声模型 ----------
+  dvl:
+    # 当前主要使用 BE（世界 ENU 速度），BI 作为备份：
+    use_be: true
+    use_bi_if_no_be: true
+
+    # 厂家精度：±(0.4% * |v| + 5 mm/s)
+    # 我们将其作为速度模长相关的 1σ：
+    #   sigma(v) = max(sigma_min, sigma_scale * |v|) + sigma_min
+    # 这里先用线性形式：sigma = sigma_scale * |v| + sigma_min
+    use_speed_dependent_sigma: true
+    sigma_min_mps: 0.005    # 5 mm/s
+    sigma_scale: 0.004      # 0.4% = 0.004
+
+    # 如果想先用常数噪声（不随速度变），可以把上面开关设为 false，
+    # 并设置此项为典型速度下的 1σ（这里选 7 mm/s）：
+    sigma_const_mps: 0.007
+
+    # DVL 更新时是否只在“速度非 NaN 且幅值合理”时使用
+    max_abs_speed_mps: 5.0
+
+  # ---------- 4) 初始协方差 P0 ----------
+  init:
+    # 4.1 位置初始不确定度（m）
+    # 池子实验中，可以假设起点误差在 0.5 m 以内
+    pos_std_m: [0.5, 0.5, 0.5]
+
+    # 4.2 速度初始不确定度（m/s）
+    vel_std_mps: [0.1, 0.1, 0.1]
+
+    # 4.3 初始姿态（Euler）不确定度（deg）
+    # roll / pitch 5°，yaw 10°（因为 yaw 较难仅靠重力初始化）
+    euler_std_deg: [5.0, 5.0, 10.0]
+
+    # 4.4 初始 gyro bias 不确定度（rad/s）
+    # 这里以静止窗估计值为均值，协方差取一个相对保守的量级。
+    gyro_bias_std_rad_s: [0.01, 0.01, 0.01]
+
+    # 4.5 初始 acc bias 不确定度（m/s^2）
+    acc_bias_std_mps2: [0.05, 0.05, 0.05]
+
+  # ---------- 5) 其它滤波相关开关 ----------
+  options:
+    # 是否在 ESKF 内再次估计/补偿 DVL bias
+    # 第一版可以先设为 false，仅依赖厂家精度和 R。
+    estimate_dvl_bias: false
+
+    # 是否在 DVL 更新前，对单个观测做简单的幅值门限过滤
+    use_simple_dvl_gate: true
+    gate_speed_max_mps: 3.0
+  # ---------- 6) 物理约束 ----------
+  physical_constraints:
+  use_pool_bounds: false
+  # 起点在水池右下角（ENU 原点）
+  # x(E): 右→左，范围 [-20, 0]
+  # y(N): 下→上，范围 [0, 20]
+  # z(U): 下为负，水底 -6 到 水面 0
+  pool_min_enu: [-20.0,  0.0, -6.0]
+  pool_max_enu: [  0.0, 20.0,   0.0]
+
+  # 越出边界的惩罚权重（可调，大一点让“出界轨迹”基本不会被选）
+  pool_penalty_weight: 20.0
+

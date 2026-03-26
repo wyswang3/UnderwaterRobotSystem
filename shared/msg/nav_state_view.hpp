@@ -5,12 +5,14 @@
 #include <cstdint>
 #include <type_traits>
 
+#include "shared/msg/nav_state.hpp"
+
 namespace shared::msg {
 
 // -----------------------------------------------------------------------------
 // Versioning
 // -----------------------------------------------------------------------------
-constexpr std::uint32_t kNavStateViewWireVersion = 1;
+constexpr std::uint32_t kNavStateViewWireVersion = 2;
 
 // -----------------------------------------------------------------------------
 // Flags / Quality
@@ -24,13 +26,6 @@ enum NavStateViewFlags : std::uint32_t {
     kHasAccBody    = 1u << 5,
 };
 
-enum class NavHealthView : std::uint8_t {
-    kUnknown = 0,
-    kOk      = 1,
-    kDegraded= 2,
-    kBad     = 3,
-};
-
 // -----------------------------------------------------------------------------
 // NavStateView (stable control-facing view)
 // -----------------------------------------------------------------------------
@@ -41,13 +36,19 @@ struct NavStateView final
     std::uint32_t flags     = 0;
 
     // timestamps
-    std::uint64_t stamp_ns  = 0;   // navigation timestamp (sensor / fusion time)
-    std::uint64_t mono_ns   = 0;   // comm_gcs publish time (steady clock)
-    std::uint32_t age_ms    = 0;   // filled by comm_gcs
-    std::uint8_t  valid     = 0;   // 0/1, filled by comm_gcs
-    std::uint8_t  health    = static_cast<std::uint8_t>(NavHealthView::kUnknown);
-
-    std::uint16_t reserved0 = 0;
+    std::uint64_t stamp_ns  = 0;            // navigation estimate timestamp (steady clock)
+    std::uint64_t mono_ns   = 0;            // gateway publish time for this hop
+    std::uint32_t age_ms    = 0xFFFFFFFFu;  // accumulated age up to this hop
+    std::uint8_t  valid     = 0;            // 1=control-usable, 0=must reject
+    std::uint8_t  stale     = 1;            // 1=age already exceeded budget on this hop
+    std::uint8_t  degraded  = 0;            // 1=usable but degraded
+    NavRunState   nav_state = NavRunState::kUninitialized;
+    NavHealth     health    = NavHealth::UNINITIALIZED;
+    std::uint8_t  reserved0 = 0;
+    NavFaultCode  fault_code = NavFaultCode::kNone;
+    std::uint16_t sensor_mask = NAV_SENSOR_NONE;
+    std::uint16_t status_flags = NAV_FLAG_NONE;
+    std::uint16_t reserved1 = 0;
 
     // ---- kinematics (nav frame unless otherwise stated) ----
     double pos[3]   = {0.0, 0.0, 0.0};  // position (e.g. NED / ENU, system-defined)
@@ -61,7 +62,6 @@ struct NavStateView final
     double acc_b[3]   = {0.0, 0.0, 0.0}; // body linear acceleration (m/s^2)
 
     // ---- reserved for forward compatibility ----
-    std::uint32_t reserved1 = 0;
     std::uint32_t reserved2 = 0;
 };
 

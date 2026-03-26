@@ -34,10 +34,10 @@ constexpr std::uint32_t kNavStateLayoutVersion = 1;
 
 using Payload = shared::msg::NavState;
 
-// Optional: payload wire version
-// If you later add a version field to shared::msg::NavState, switch this to that.
-// For now, pin at 1 and rely on size/align to detect mismatch.
-constexpr std::uint32_t kNavStatePayloadVersion = 1;
+// Payload version is bumped whenever shared::msg::NavState semantics change in a
+// backward-incompatible way. Readers use this together with sizeof/alignment
+// checks to reject stale layouts instead of silently reinterpreting fields.
+constexpr std::uint32_t kNavStatePayloadVersion = 2;
 
 // -----------------------------------------------------------------------------
 // ShmHeader

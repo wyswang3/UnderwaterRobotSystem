@@ -1,0 +1,9 @@
+对EKSF坐标系转换检查：
+python -m offnav.viz.eskf_frame_check   --audit-csv ../out/nav_eskf/2026-01-10_pooltest01/2026-01-10_pooltest01_eskf_update_audit.csv   --speed-min 0.10
+
+对预处理数据快捷检查：
+python -m offnav.viz.dvl_imu_frame_check \
+  --imu-csv ../out/proc/2026-01-10_pooltest02/2026-01-10_pooltest01_imu_filtered.csv \
+  --dvl-be-csv ../out/proc/2026-01-10_pooltest02/2026-01-10_pooltest01_dvl_BE.csv \
+  --dvl-bi-csv ../out/proc/2026-01-10_pooltest02/2026-01-10_pooltest01_dvl_BI.csv \
+  --speed-min 0.10
