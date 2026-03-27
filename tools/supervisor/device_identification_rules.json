@@ -42,7 +42,24 @@
         "真实样本已确认离线导出 CSV 会稳定包含 AccX/AsX/HX/AngX 这组字段，但这不是 live serial 被动采样格式。",
         "当前 runtime 主链使用 WIT Modbus-RTU 轮询，IMU 被动采样可能没有字节，因此不能把动态探测当成 IMU 主判据。",
         "VID/PID、manufacturer、product 目前仍属于候选静态白名单，还需要真实 bench 的 by-id/sysfs 样本继续收紧。"
-      ]
+      ],
+      "static_field_support": {
+        "by_id": "candidate_only",
+        "vendor_id": "candidate_only",
+        "product_id": "candidate_only",
+        "serial": "candidate_only",
+        "manufacturer": "candidate_only",
+        "product": "candidate_only"
+      },
+      "sample_gaps": {
+        "static_identity": [
+          "缺少真实 bench IMU 的 /dev/serial/by-id 软链接名样本，当前 by-id 只能算候选白名单。",
+          "缺少真实 bench IMU 的 idVendor/idProduct/serial/manufacturer/product 同步快照，当前静态白名单还不能直接当强绑定规则；最好再补一份重枚举后的第二次快照。"
+        ],
+        "dynamic_probe": [
+          "缺少与当前 WIT Modbus-RTU 轮询链一致的主动探测样本；被动采样无字节时必须允许回退 unknown。"
+        ]
+      }
     },
     {
       "device_type": "volt32",
@@ -77,7 +94,24 @@
         "真实样本已确认导出 CSV 采用 CH0..CH15 列结构，且值后缀稳定出现 V/A。",
         "现场 live serial 识别仍主要依赖 CHn: 文本行语法；当前缺少 Volt32 原始串口行日志，所以这一条只能算部分样本支撑。",
         "静态 by-id、VID/PID、manufacturer、product 目前仍是候选规则，需要真实现场快照继续校准。"
-      ]
+      ],
+      "static_field_support": {
+        "by_id": "candidate_only",
+        "vendor_id": "candidate_only",
+        "product_id": "candidate_only",
+        "serial": "candidate_only",
+        "manufacturer": "candidate_only",
+        "product": "candidate_only"
+      },
+      "sample_gaps": {
+        "static_identity": [
+          "缺少真实 bench Volt32 的 /dev/serial/by-id 软链接名样本，当前 by-id 只能算候选白名单。",
+          "缺少真实 bench Volt32 的 idVendor/idProduct/serial/manufacturer/product 同步快照，当前静态白名单还不能直接当强绑定规则；最好再补一份重枚举后的第二次快照。"
+        ],
+        "dynamic_probe": [
+          "缺少 Volt32 原始 live serial CHn: 行日志，当前 live 动态规则仍只能算 partial。"
+        ]
+      }
     },
     {
       "device_type": "dvl",
@@ -112,7 +146,22 @@
         "真实 dvl_raw_lines 样本已经确认 SA/TS/BI/BS/BE/BD 是稳定高频回复 token，可作为强动态规则。",
         "RawLine CSV 头和 SensorID=DVL_H1000 也来自真实样本，可作为导出样本解释证据。",
         "静态 by-id、VID/PID、manufacturer、product 仍缺真实快照，只能先保留为候选白名单。"
-      ]
+      ],
+      "static_field_support": {
+        "by_id": "candidate_only",
+        "vendor_id": "candidate_only",
+        "product_id": "candidate_only",
+        "serial": "candidate_only",
+        "manufacturer": "candidate_only",
+        "product": "candidate_only"
+      },
+      "sample_gaps": {
+        "static_identity": [
+          "缺少真实 bench DVL 的 /dev/serial/by-id 软链接名样本，当前 by-id 只能算候选白名单。",
+          "缺少真实 bench DVL 的 idVendor/idProduct/serial/manufacturer/product 同步快照，当前静态白名单还不能直接当强绑定规则；最好再补一份重枚举后的第二次快照。"
+        ],
+        "dynamic_probe": []
+      }
     },
     {
       "device_type": "usbl",
@@ -138,7 +187,23 @@
       },
       "notes": [
         "本轮没有 USBL 真实样本，仍停留在占位规则。"
-      ]
+      ],
+      "static_field_support": {
+        "by_id": "candidate_only",
+        "vendor_id": "candidate_only",
+        "product_id": "candidate_only",
+        "serial": "candidate_only",
+        "manufacturer": "candidate_only",
+        "product": "candidate_only"
+      },
+      "sample_gaps": {
+        "static_identity": [
+          "USBL 仍缺真实 /dev/serial/by-id 和 sysfs 快照，当前静态规则只是占位。"
+        ],
+        "dynamic_probe": [
+          "USBL 仍缺真实串口样本，当前动态规则只是占位。"
+        ]
+      }
     }
   ]
 }

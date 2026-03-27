@@ -296,7 +296,9 @@ def build_text_summary(summary: dict) -> str:
         f"last_fault_event={summary['last_fault_event'] or '-'}",
         f"bundle_exported_wall_time={summary['bundle_exported_wall_time']}",
         f"bundle_dir={summary['bundle_dir']}",
+        f"bundle_export_ok={int(bool(summary.get('bundle_export_ok', True)))}",
         f"bundle_status={summary['bundle_status']}",
+        f"bundle_status_meaning={summary.get('bundle_status_meaning', 'artifact_completeness')}",
         f"bundle_incomplete={int(bool(summary['bundle_incomplete']))}",
         f"required_ok={int(bool(summary['required_ok']))}",
         f"missing_required={','.join(summary['missing_required_keys']) if summary['missing_required_keys'] else '-'}",
@@ -328,8 +330,10 @@ def build_text_summary(summary: dict) -> str:
         '',
         '[notes]',
         '1. 先看 bundle_summary.json / bundle_summary.txt，再看 supervisor/last_fault_summary.txt。',
-        '2. 如果 bundle_status=incomplete，先按 missing_optional 回到原 run_dir 补日志，再决定是否做 replay。',
-        '3. 当前 Phase 1 bundle 只做稳定收集与缺失提示，不在这里重写 incident timeline 分析逻辑。',
+        '2. bundle_export_ok=1 只表示 bundle 目录与摘要已经成功写出；它不等于所有 artifacts 都齐全。',
+        '3. bundle_status 只表达 artifact completeness；如果 required_ok=1 且 bundle_status=incomplete，说明缺的是 optional artifacts，而不是导出失败。',
+        '4. 如果 required_ok=0，先补 supervisor run files；如果 required_ok=1 但 bundle_status=incomplete，先按 missing_optional 回到原 run_dir 补日志，再决定是否做 replay。',
+        '5. 当前 Phase 1 bundle 只做稳定收集与缺失提示，不在这里重写 incident timeline 分析逻辑。',
         '',
         '[artifact_inventory]',
     ])
@@ -575,7 +579,10 @@ def export_run_bundle(run_dir: Path, *, bundle_dir: Optional[Path] = None) -> di
         for proc in status.get('processes', [])
         if isinstance(proc, dict)
     ]
+    supervisor_state = str(status.get('supervisor_state') or '')
     all_not_started = bool(process_states) and all(state == 'not_started' for state in process_states)
+    any_started = any(state not in {'', 'not_started'} for state in process_states)
+    any_live = any(state in {'starting', 'running', 'stopping'} for state in process_states)
     last_fault_event = str(status.get('last_fault_event') or '')
     if last_fault_event == 'preflight_failed' and all_not_started:
         run_stage = 'preflight_failed_before_spawn'
@@ -583,11 +590,21 @@ def export_run_bundle(run_dir: Path, *, bundle_dir: Optional[Path] = None) -> di
             '当前 run 在 preflight 阶段就失败了，先修复 supervisor/last_fault_summary.txt 里的阻塞项。',
             '因为 authority 子进程没有真正启动，零字节 child logs 和缺失的 nav/control/telemetry artifacts 在这里是预期现象。',
         ]
-    elif any(state not in {'', 'not_started'} for state in process_states):
-        run_stage = 'child_process_started'
+    elif any_live or supervisor_state in {'starting', 'running', 'stopping'}:
+        run_stage = 'child_process_running'
         triage_hints = [
-            '至少有一个 authority 子进程已经启动，先结合 child logs、低频事件和高频日志排查。',
+            '至少有一个 authority 子进程仍处于运行或停机过渡态，先结合 child logs、低频事件和高频日志排查当前 run。',
         ]
+    elif any_started:
+        run_stage = 'child_process_stopped_after_start'
+        if supervisor_state == 'failed' or any(state == 'failed' for state in process_states):
+            triage_hints = [
+                '当前 run 在 authority 子进程阶段已经退出或失败；先结合 child logs、低频事件和高频日志做事后复盘。',
+            ]
+        else:
+            triage_hints = [
+                '当前 run 曾启动 authority 子进程，但导出时已经停止；先结合 child logs、低频事件和高频日志做事后复盘。',
+            ]
     else:
         run_stage = 'run_created_without_child_start'
         triage_hints = [
@@ -617,6 +634,20 @@ def export_run_bundle(run_dir: Path, *, bundle_dir: Optional[Path] = None) -> di
             f'--bundle-dir {bundle_dir / "replay_bundle"}'
         )
 
+    bundle_status = 'complete' if not missing_required and not missing_optional else 'incomplete'
+    if missing_required:
+        triage_hints.append(
+            'bundle 已成功导出，但 required artifacts 缺失；当前最小 supervisor 复盘集合还不完整。'
+        )
+    elif missing_optional:
+        triage_hints.append(
+            'bundle 已成功导出；当前 incomplete 只表示 optional artifacts 缺失，不等于 bundle 导出失败。'
+        )
+    else:
+        triage_hints.append(
+            'bundle 已成功导出，当前 required/optional artifacts 都已就位。'
+        )
+
     summary = {
         'run_id': manifest.get('run_id'),
         'profile': manifest.get('profile'),
@@ -626,7 +657,9 @@ def export_run_bundle(run_dir: Path, *, bundle_dir: Optional[Path] = None) -> di
         'run_stage': run_stage,
         'triage_hints': triage_hints,
         'bundle_exported_wall_time': wall_time_now(),
-        'bundle_status': 'complete' if not missing_required and not missing_optional else 'incomplete',
+        'bundle_export_ok': True,
+        'bundle_status': bundle_status,
+        'bundle_status_meaning': 'artifact_completeness',
         'bundle_incomplete': bool(missing_required or missing_optional),
         'required_ok': not missing_required,
         'missing_required_keys': missing_required,

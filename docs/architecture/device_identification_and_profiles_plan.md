@@ -204,37 +204,123 @@ profile 矩阵本身本轮不需要调整；真正变化的是：
    - `device_inventory`
    - `device_recommendations`
    - `startup_profile`
+   - `device_rule_maturity`
+   - `device_static_sample_gaps`
    - `device_binding_ambiguity`
    - `startup_profile_gate`
-4. 若识别结果显示当前只能 `no_sensor` / `volt_only`，或存在歧义，则 preflight 直接失败。
+4. `device-scan --json` 还会额外输出：
+   - `rule_catalog`
+   - `rule_maturity_summary`
+   - `static_sample_gap_summary`
+5. 若识别结果显示当前只能 `no_sensor` / `volt_only`，或存在歧义，则 preflight 直接失败。
 
 当前 gate 规则：
 
 - 只有 `launch_mode=bench_safe_smoke` 的 `startup_profile` 才允许继续做当前 `bench` 链路。
 - `ambiguous=true`、`launch_mode=preflight_only`、`launch_mode=reserved` 都会被明确拒绝。
 
+这里新增 `device_rule_maturity` 和 `device_static_sample_gaps` 的目的，不是为了放宽 gate，而是为了把“当前哪些规则已经可用、哪些规则仍缺真实样本”直接写进 bench 前检查输出，避免操作员只看到 `no_sensor` / `unknown` 却不知道下一步该补什么。
+
 ## 6. 当前实现状态与下一步
 
-当前已落地：
+### 6.1 当前规则成熟度清单
 
-1. 静态身份白名单
-2. 样本支撑的 DVL 动态指纹
-3. 样本支撑的 IMU / Volt32 导出样本识别
-4. `device-scan` / `startup-profiles` CLI
-5. `bench preflight` 的 startup profile 推荐与 gate
-6. `run_manifest / process_status / last_fault_summary` 的识别结果记录
-7. 样本驱动的 `test_device_identification.py`
+#### 已验证规则
 
-当前仍未落地：
+- IMU
+  - 导出 CSV 字段集合已经是样本支撑，可作为离线样本解释依据。
+  - 对 `imu_only` bench 的意义是：IMU 类型本身并非完全不可判，但当前 runtime 主链仍主要依赖静态身份确认，不能把被动串口采样当主判据。
+- DVL
+  - `SA/TS/BI/BS/BE/BD` reply token 已是样本支撑的强动态规则。
+  - 这已经足以支撑 `imu_dvl` bench 的 DVL 识别侧准备。
+- Volt32
+  - `CH0..CH15` 导出 CSV 头和 `V/A` 值后缀已经是样本支撑。
+  - 这说明 Volt32 的导出格式已经可解释，但并不等于 live serial 规则已经闭环。
 
-1. IMU 的 live serial 主动探测
-2. Volt32 的原始串口行样本驱动校准
-3. USBL 真实样本规则
-4. `imu_only` / `imu_dvl` 的真正进程图差异化启动
-5. 上传 / GUI 集成 / authority 侧深度改造
+#### 候选规则 / partial 规则
 
-下一步最合理的顺序是：
+- IMU
+  - `/dev/serial/by-id`、VID/PID、serial、manufacturer、product 目前都还是 `candidate_only`。
+  - 旧 `0x55` 连续同步帧只保留兼容候选位，不能作为当前 runtime 主判据。
+- Volt32
+  - live serial `CHn:` 行语法仍是 `partial`，因为还缺真实原始串口行样本。
+  - `/dev/serial/by-id`、VID/PID、serial、manufacturer、product 目前都还是 `candidate_only`。
+- DVL
+  - 动态 token 规则已成熟，但静态身份侧的 `/dev/serial/by-id`、VID/PID、serial、manufacturer、product 目前仍全是 `candidate_only`。
+- USBL
+  - 静态和动态都还只是 `candidate_only` 占位规则。
 
-1. 先在真实 bench 上补采 `/dev/serial/by-id` / sysfs 快照
-2. 再分别验证 `imu_only` 与 `imu_dvl` 的 profile 推荐是否稳定
-3. 若继续推进，也只允许讨论 supervisor 侧轻量 launch policy，不提前改核心 authority 主链
+#### 仍需真实样本补充的规则
+
+- IMU
+  - 至少 1 份真实 `/dev/serial/by-id` 软链接名。
+  - 至少 1 份真实 `idVendor/idProduct/serial/manufacturer/product` 同步快照。
+  - 最好再补 1 份重枚举后的第二次快照。
+- Volt32
+  - 至少 1 份真实 `/dev/serial/by-id` + sysfs 同步快照。
+  - 至少 1 份真实 live serial `CHn:` 原始行日志。
+- DVL
+  - 至少 1 份真实 `/dev/serial/by-id` + sysfs 同步快照。
+  - 最好再补 1 份重枚举后的第二次快照，用来确认静态身份是否稳定。
+- USBL
+  - 当前还没有任何可信真实样本，不应进入本轮 bench 目标。
+
+### 6.2 为什么下一步优先做 `imu_only` / `imu_dvl`
+
+1. 这两个 profile 已经是当前 `phase0_supervisor` 明确实现并允许 `bench_safe_smoke` 的最小可执行集合。
+2. IMU 和 DVL 已经各自拥有一部分真实样本支撑：
+   - IMU：离线导出结构已知
+   - DVL：动态 token 已知且成熟
+3. 当前最大剩余风险已经不是 profile 框架，而是静态身份样本和 bench 设备到位后的实际判定稳定性。
+4. 先把 `imu_only` / `imu_dvl` 做实，可以最小化变量，把问题集中在：
+   - 静态身份是否稳定
+   - `device-scan` 推荐是否一致
+   - preflight gate 是否符合预期
+   - `start/status/stop/bundle` 是否形成可复现闭环
+
+### 6.3 为什么暂时不推进 USBL 和更复杂 profile
+
+1. `imu_dvl_usbl` 和 `full_stack` 仍是预留 profile，当前没有接入新的 authority 进程图。
+2. USBL 仍缺真实静态身份样本和真实串口样本；这时继续扩 profile 只会引入新的歧义源。
+3. 在 IMU / DVL 的 bench 基线还没有真正完成前，把 USBL 拉进来只会让问题定位从“两设备绑定和启动闭环”膨胀到“三设备+新语义”的组合排障。
+4. 本轮目标是“把真实设备识别和真实 bench 验证前准备做扎实”，不是把 profile 名单继续扩大。
+
+### 6.4 当前已落地
+
+1. 字段级静态身份成熟度和缺失样本说明已经写入 `device_identification_rules.json`。
+2. `device_identification.py` 现在会在 JSON 结果里输出：
+   - `rule_catalog`
+   - `rule_maturity_summary`
+   - `static_sample_gap_summary`
+   - `rule_support.static_fields`
+   - `rule_support.sample_gaps`
+3. `phase0_supervisor.py preflight` 现在会直接输出：
+   - `device_rule_maturity`
+   - `device_static_sample_gaps`
+4. `test_device_identification.py` 与 `test_phase0_supervisor.py` 已补最小回归，覆盖新的成熟度摘要输出。
+
+### 6.5 当前仍未落地
+
+1. IMU 的 live serial 主动探测。
+2. Volt32 的真实 live serial 样本驱动校准。
+3. USBL 真实样本规则。
+4. `imu_only` / `imu_dvl` 的真正进程图差异化启动。
+5. 上传 / GUI 集成 / authority 侧深度改造。
+
+### 6.6 下一轮真实 bench 推荐顺序
+
+1. 先补静态身份快照：
+   - `ls -l /dev/serial/by-id`
+   - `usb_serial_snapshot.py --json`
+   - `phase0_supervisor.py device-scan --sample-policy off --json`
+2. 先做 `imu_only`：
+   - 确认 IMU 静态身份
+   - 跑 `device-scan`
+   - 跑 `startup-profiles`
+   - 跑 `preflight`
+   - 再做 `start -> status -> stop -> bundle`
+3. 再做 `imu_dvl`：
+   - 保持同样顺序
+   - 重点确认 DVL token 识别和 profile 推荐稳定
+4. `imu_only` / `imu_dvl` 都稳定后，再补 Volt32 live serial 样本。
+5. USBL 和更复杂 profile 继续延后，等真实样本和 bench 基线都具备后再讨论。

@@ -227,6 +227,84 @@ PROFILE_SPECS: dict[str, StartupProfileSpec] = {
     ),
 }
 
+PROFILE_NAVIGATION_REQUIREMENTS: dict[str, str] = {
+    'no_sensor': 'disabled',
+    'volt_only': 'disabled',
+    'imu_only': 'required',
+    'imu_dvl': 'required',
+    'imu_dvl_usbl': 'required',
+    'full_stack': 'required',
+}
+
+PROFILE_RUNTIME_LEVEL_HINTS: dict[str, str] = {
+    'no_sensor': 'control_only',
+    'volt_only': 'control_only',
+    'imu_only': 'control_nav_optional',
+    'imu_dvl': 'control_nav_optional',
+    'imu_dvl_usbl': 'full_stack_preview',
+    'full_stack': 'full_stack_preview',
+}
+
+# 启动 profile 负责表达“当前设备 readiness”，而操作员真正看到的能力等级要更保守：
+# - IMU-only 只应解释成 attitude_feedback，不能写成完整导航；
+# - IMU + DVL 只应解释成 relative_nav，不能写成绝对定位；
+# - DVL 是外接可拆模块，因此不是默认 control_only 的硬依赖。
+PROFILE_CAPABILITY_LEVELS: dict[str, str] = {
+    'no_sensor': 'control_only',
+    'volt_only': 'control_only',
+    'imu_only': 'attitude_feedback',
+    'imu_dvl': 'relative_nav',
+    'imu_dvl_usbl': 'full_stack_preview',
+    'full_stack': 'full_stack_preview',
+}
+
+PROFILE_CAPABILITY_SUMMARIES: dict[str, str] = {
+    'control_only': '不宣称导航；当前只保证遥控、状态观察、日志记录和 bundle 导出。',
+    'attitude_feedback': 'IMU-only 只提供姿态反馈与运动分析，不宣称完整导航。',
+    'relative_nav': 'IMU + DVL 只提供速度与短时相对运动信息，不宣称绝对定位。',
+    'full_stack_preview': '仅保留预留预览口径，当前不进入默认 operator lane。',
+}
+
+PROFILE_EXPECTED_MOTION_FIELDS: dict[str, tuple[str, ...]] = {
+    'control_only': (),
+    'attitude_feedback': ('roll', 'pitch', 'yaw', 'gyro', 'accel'),
+    'relative_nav': ('roll', 'pitch', 'yaw', 'gyro', 'accel', 'velocity', 'relative_position'),
+    'full_stack_preview': ('roll', 'pitch', 'yaw', 'gyro', 'accel', 'velocity', 'relative_position'),
+}
+
+
+def startup_profile_navigation_requirement(name: str) -> str:
+    key = (name or '').strip().lower()
+    return PROFILE_NAVIGATION_REQUIREMENTS.get(key, 'required')
+
+
+def startup_profile_runtime_level_hint(name: str) -> str:
+    key = (name or '').strip().lower()
+    return PROFILE_RUNTIME_LEVEL_HINTS.get(key, 'control_nav_optional')
+
+
+def startup_profile_capability_level(name: str) -> str:
+    key = (name or '').strip().lower()
+    return PROFILE_CAPABILITY_LEVELS.get(key, 'control_only')
+
+
+def capability_level_summary(level: str) -> str:
+    key = (level or 'control_only').strip().lower()
+    return PROFILE_CAPABILITY_SUMMARIES.get(key, PROFILE_CAPABILITY_SUMMARIES['control_only'])
+
+
+def startup_profile_capability_summary(name: str) -> str:
+    return capability_level_summary(startup_profile_capability_level(name))
+
+
+def capability_level_motion_fields(level: str) -> tuple[str, ...]:
+    key = (level or 'control_only').strip().lower()
+    return PROFILE_EXPECTED_MOTION_FIELDS.get(key, ())
+
+
+def startup_profile_motion_fields(name: str) -> tuple[str, ...]:
+    return capability_level_motion_fields(startup_profile_capability_level(name))
+
 
 def normalize_device_type(value: str) -> str:
     device_type = (value or 'unknown').strip().lower()
@@ -292,11 +370,17 @@ def recommend_startup_profile(device_counts: Mapping[str, int]) -> dict:
         reason = '没有识别到可信绑定的 IMU/DVL/USBL/Volt32 设备，应停在 preflight。'
 
     spec = get_profile_spec(profile_name)
+    capability_level = startup_profile_capability_level(spec.name)
     return {
         'profile': spec.name,
         'description': spec.description,
         'launch_mode': spec.launch_mode,
         'implemented': spec.implemented,
+        'navigation_requirement': startup_profile_navigation_requirement(spec.name),
+        'runtime_level_hint': startup_profile_runtime_level_hint(spec.name),
+        'capability_level': capability_level,
+        'capability_summary': startup_profile_capability_summary(spec.name),
+        'motion_fields_expected': list(capability_level_motion_fields(capability_level)),
         'reason': reason,
         'device_summary': summarize_device_counts(device_counts),
     }
@@ -329,6 +413,7 @@ def resolve_startup_profile(requested: str, device_counts: Mapping[str, int]) ->
     if missing_required:
         errors.append('missing required devices: ' + ', '.join(missing_required))
 
+    capability_level = startup_profile_capability_level(spec.name)
     return {
         'requested': requested_name or AUTO_PROFILE,
         'selected': spec.name,
@@ -336,6 +421,11 @@ def resolve_startup_profile(requested: str, device_counts: Mapping[str, int]) ->
         'description': spec.description,
         'launch_mode': spec.launch_mode,
         'implemented': spec.implemented,
+        'navigation_requirement': startup_profile_navigation_requirement(spec.name),
+        'runtime_level_hint': startup_profile_runtime_level_hint(spec.name),
+        'capability_level': capability_level,
+        'capability_summary': startup_profile_capability_summary(spec.name),
+        'motion_fields_expected': list(capability_level_motion_fields(capability_level)),
         'recommended': recommended,
         'missing_required_devices': missing_required,
         'warnings': warnings,
@@ -356,6 +446,11 @@ def serialize_profile_catalog() -> list[dict]:
                 'implemented': spec.implemented,
                 'required_devices': list(spec.required_devices),
                 'optional_devices': list(spec.optional_devices),
+                'navigation_requirement': startup_profile_navigation_requirement(spec.name),
+                'runtime_level_hint': startup_profile_runtime_level_hint(spec.name),
+                'capability_level': startup_profile_capability_level(spec.name),
+                'capability_summary': startup_profile_capability_summary(spec.name),
+                'motion_fields_expected': list(startup_profile_motion_fields(spec.name)),
                 'start_modules': list(spec.start_modules),
                 'skip_modules': list(spec.skip_modules),
                 'allowed_capabilities': list(spec.allowed_capabilities),

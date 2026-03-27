@@ -20,6 +20,14 @@ DEFAULT_MAX_SAMPLE_BYTES = 2048
 DEFAULT_DYNAMIC_BAUDS = (230400, 115200)
 MIN_RESOLVE_SCORE = 0.60
 AMBIGUOUS_SCORE_DELTA = 0.12
+STATIC_IDENTITY_FIELD_KEYS = (
+    'by_id',
+    'vendor_id',
+    'product_id',
+    'serial',
+    'manufacturer',
+    'product',
+)
 KNOWN_IMU_FRAME_TYPES = {0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A, 0x5B, 0x5C}
 SUPPORT_RANK = {
     'candidate_only': 0,
@@ -80,6 +88,14 @@ class DeviceRule:
     baud_candidates: tuple[int, ...] = ()
     static_support: str = 'candidate_only'
     dynamic_support: str = 'candidate_only'
+    by_id_support: str = 'candidate_only'
+    vendor_id_support: str = 'candidate_only'
+    product_id_support: str = 'candidate_only'
+    serial_support: str = 'candidate_only'
+    manufacturer_support: str = 'candidate_only'
+    product_support: str = 'candidate_only'
+    static_sample_gaps: tuple[str, ...] = ()
+    dynamic_sample_gaps: tuple[str, ...] = ()
     notes: tuple[str, ...] = ()
 
 
@@ -145,6 +161,8 @@ def load_rules(path: pathlib.Path | None = None) -> list[DeviceRule]:
     rules: list[DeviceRule] = []
     for item in devices:
         sample_support = item.get('sample_support') or {}
+        static_field_support = item.get('static_field_support') or {}
+        sample_gaps = item.get('sample_gaps') or {}
         rules.append(
             DeviceRule(
                 device_type=str(item.get('device_type') or 'unknown').strip().lower(),
@@ -156,8 +174,16 @@ def load_rules(path: pathlib.Path | None = None) -> list[DeviceRule]:
                 manufacturer_contains=normalize_tuple(item.get('manufacturer_contains')),
                 product_contains=normalize_tuple(item.get('product_contains')),
                 baud_candidates=tuple(int(value) for value in item.get('baud_candidates', []) if int(value) > 0),
-                static_support=str(sample_support.get('static_identity') or 'candidate_only').strip().lower(),
-                dynamic_support=str(sample_support.get('dynamic_probe') or 'candidate_only').strip().lower(),
+                static_support=_normalize_support_level(str(sample_support.get('static_identity') or 'candidate_only')),
+                dynamic_support=_normalize_support_level(str(sample_support.get('dynamic_probe') or 'candidate_only')),
+                by_id_support=_normalize_support_level(static_field_support.get('by_id') or sample_support.get('static_identity') or 'candidate_only'),
+                vendor_id_support=_normalize_support_level(static_field_support.get('vendor_id') or sample_support.get('static_identity') or 'candidate_only'),
+                product_id_support=_normalize_support_level(static_field_support.get('product_id') or sample_support.get('static_identity') or 'candidate_only'),
+                serial_support=_normalize_support_level(static_field_support.get('serial') or sample_support.get('static_identity') or 'candidate_only'),
+                manufacturer_support=_normalize_support_level(static_field_support.get('manufacturer') or sample_support.get('static_identity') or 'candidate_only'),
+                product_support=_normalize_support_level(static_field_support.get('product') or sample_support.get('static_identity') or 'candidate_only'),
+                static_sample_gaps=normalize_notes(sample_gaps.get('static_identity')),
+                dynamic_sample_gaps=normalize_notes(sample_gaps.get('dynamic_probe')),
                 notes=normalize_notes(item.get('notes')),
             )
         )
@@ -258,6 +284,64 @@ def serialize_match(match: MatchScore | None) -> Optional[dict]:
         'support_level': match.support_level,
         'detector': match.detector,
     }
+
+
+def serialize_static_field_support(rule: DeviceRule) -> dict[str, str]:
+    return {
+        'by_id': rule.by_id_support,
+        'vendor_id': rule.vendor_id_support,
+        'product_id': rule.product_id_support,
+        'serial': rule.serial_support,
+        'manufacturer': rule.manufacturer_support,
+        'product': rule.product_support,
+    }
+
+
+# 规则成熟度需要和实时扫描一起暴露，方便在 bench 前明确区分“可直接依赖”和“仍需补样本”的静态身份条件。
+def serialize_rule_catalog(rules: Sequence[DeviceRule]) -> list[dict]:
+    catalog = []
+    for rule in rules:
+        catalog.append(
+            {
+                'device_type': rule.device_type,
+                'display_name': rule.display_name,
+                'static_identity': {
+                    'overall_support': rule.static_support,
+                    'field_support': serialize_static_field_support(rule),
+                    'sample_gaps': list(rule.static_sample_gaps),
+                },
+                'dynamic_probe': {
+                    'overall_support': rule.dynamic_support,
+                    'sample_gaps': list(rule.dynamic_sample_gaps),
+                },
+                'notes': list(rule.notes),
+            }
+        )
+    return catalog
+
+
+def summarize_rule_catalog(catalog: Sequence[dict], *, device_types: Sequence[str] = ('imu', 'dvl', 'volt32')) -> str:
+    parts = []
+    wanted = set(device_types)
+    for item in catalog:
+        if item.get('device_type') not in wanted:
+            continue
+        static = item.get('static_identity', {}).get('overall_support', 'unknown')
+        dynamic = item.get('dynamic_probe', {}).get('overall_support', 'unknown')
+        parts.append(f"{item['device_type']} static={static} dynamic={dynamic}")
+    return '; '.join(parts)
+
+
+def summarize_static_sample_gaps(catalog: Sequence[dict], *, device_types: Sequence[str] = ('imu', 'dvl', 'volt32')) -> str:
+    parts = []
+    wanted = set(device_types)
+    for item in catalog:
+        if item.get('device_type') not in wanted:
+            continue
+        gaps = list(item.get('static_identity', {}).get('sample_gaps') or [])
+        if gaps:
+            parts.append(f"{item['device_type']}: {gaps[0]}")
+    return '; '.join(parts)
 
 
 def _extract_header_fields(text: str) -> list[str]:
@@ -841,6 +925,11 @@ def identify_device(
         'rule_support': {
             'static_identity': top_rule.static_support if top_rule is not None else 'unknown',
             'dynamic_probe': top_rule.dynamic_support if top_rule is not None else 'unknown',
+            'static_fields': serialize_static_field_support(top_rule) if top_rule is not None else {},
+            'sample_gaps': {
+                'static_identity': list(top_rule.static_sample_gaps) if top_rule is not None else [],
+                'dynamic_probe': list(top_rule.dynamic_sample_gaps) if top_rule is not None else [],
+            },
             'notes': list(top_rule.notes) if top_rule is not None else [],
         },
         'ambiguous': ambiguous,
@@ -879,6 +968,7 @@ def scan_device_inventory(
     requested_startup_profile: str = device_profiles.AUTO_PROFILE,
 ) -> dict:
     rules = load_rules(rules_path)
+    rule_catalog = serialize_rule_catalog(rules)
     identities = scan_serial_snapshot(dev_root, sys_root)
     devices = [
         identify_device(
@@ -932,6 +1022,9 @@ def scan_device_inventory(
         'devices': devices,
         'device_counts': counts,
         'device_summary': summarize_devices(devices),
+        'rule_catalog': rule_catalog,
+        'rule_maturity_summary': summarize_rule_catalog(rule_catalog),
+        'static_sample_gap_summary': summarize_static_sample_gaps(rule_catalog),
         'recommended_bindings': recommended_bindings,
         'ambiguous': bool(ambiguous_devices),
         'ambiguous_devices': ambiguous_devices,
@@ -969,6 +1062,10 @@ def print_table(summary: dict) -> None:
     print(f"selected_startup_profile={selected['selected']}")
     print(f"launch_mode={selected['launch_mode']}")
     print(f"device_counts={device_profiles.summarize_device_counts(summary['device_counts'])}")
+    if summary.get('rule_maturity_summary'):
+        print(f"rule_maturity={summary['rule_maturity_summary']}")
+    if summary.get('static_sample_gap_summary'):
+        print(f"static_sample_gaps={summary['static_sample_gap_summary']}")
     if summary['risk_hints']:
         print('risk_hints=')
         for item in summary['risk_hints']:

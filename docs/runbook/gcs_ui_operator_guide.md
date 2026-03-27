@@ -22,12 +22,14 @@
 
 ### ROV 侧
 
-完整链路推荐顺序：
+当前默认推荐顺序：
 
-1. `uwnav_navd`
-2. `nav_viewd`
-3. `pwm_control_program`
-4. `gcs_server`
+1. `phase0_supervisor.py preflight --profile control_only`
+2. `phase0_supervisor.py start --profile control_only --detach`
+3. 由 supervisor 启动：
+   - `pwm_control_program`
+   - `gcs_server`
+4. 只有在 `imu_only` / `imu_dvl` readiness 稳定后，才切到 `bench` nav preview lane
 5. 如需外围 bridge，再启动 `rov_state_bridge` / `rov_health_monitor`
 
 ### 操作员侧
@@ -121,20 +123,32 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 
 客户应优先识别：
 
-- `Online`
+- `IMU + DVL`
+- `IMU Only`
+- `Control Only`
 - `Reconnecting`
 - `Mismatch`
-- `Offline`
-- `Degraded`
 
-### Navigation
+说明：
+
+- `DVL` 当前是外接可选模块，不是默认启动硬依赖。
+- `Volt32` 当前仍应结合 supervisor `device-scan` / `status` 解读，不应把 GUI 缺失直接判成设备离线。
+
+### Motion Info
+
+当前 GUI 已把原 `Navigation` 卡片收口成 `Motion Info`。
 
 主要看：
 
-- `Ok`
-- `Degraded`
-- `Stale`
-- `Invalid`
+- `Control Only`
+- `Attitude Feedback`
+- `Relative Nav`
+
+判读原则：
+
+- `Control Only` 不代表系统失败，只表示当前不宣称运动反馈。
+- `Attitude Feedback` 只代表 IMU-only 的姿态反馈，不代表完整导航。
+- `Relative Nav` 只代表 IMU + DVL 的速度与短时相对运动，不代表绝对定位。
 
 ### Control
 
@@ -207,7 +221,7 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 2. 再看 `Devices` 是否出现 `Mismatch` / `Reconnecting` / `Offline`。
 3. 再看 `Navigation` 是否为 `Invalid` / `Stale`。
 4. 再看 `Control` 是否处于 `Failsafe` / `E-Stop latched` / `Disarmed`。
-5. 如需真正 teleop，切换到 TUI 或 UDP 主路径继续操作。
+5. 如需真正 teleop，切换到 TUI；GUI 只做只读状态 / motion observer。
 6. 每次操作后都看 `Command` 和 `Control`，不要只看本地按钮是否点过。
 
 ## 7. 当前已知边界

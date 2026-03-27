@@ -58,6 +58,30 @@ class DeviceIdentificationTests(unittest.TestCase):
             self.assertEqual('imu_only', summary['recommended_startup_profile']['profile'])
             self.assertEqual(str(dev_root / 'serial' / 'by-id' / 'usb-imu-main'), summary['recommended_bindings']['imu'])
 
+    def test_scan_summary_includes_rule_catalog_and_static_gap_summary(self) -> None:
+        with tempfile.TemporaryDirectory(prefix='device_ident_rules_') as td:
+            root = Path(td)
+            dev_root = root / 'dev'
+            sys_root = root / 'sys' / 'class' / 'tty'
+            dev_root.mkdir(parents=True)
+            sys_root.mkdir(parents=True)
+
+            summary = ident.scan_device_inventory(
+                dev_root=dev_root,
+                sys_root=sys_root,
+                sample_policy='off',
+            )
+
+            imu_rule = next(item for item in summary['rule_catalog'] if item['device_type'] == 'imu')
+            dvl_rule = next(item for item in summary['rule_catalog'] if item['device_type'] == 'dvl')
+            self.assertEqual('candidate_only', imu_rule['static_identity']['overall_support'])
+            self.assertEqual('candidate_only', imu_rule['static_identity']['field_support']['by_id'])
+            self.assertEqual('partial', imu_rule['dynamic_probe']['overall_support'])
+            self.assertTrue(imu_rule['static_identity']['sample_gaps'])
+            self.assertEqual('sample_backed', dvl_rule['dynamic_probe']['overall_support'])
+            self.assertIn('imu static=candidate_only dynamic=partial', summary['rule_maturity_summary'])
+            self.assertIn('imu:', summary['static_sample_gap_summary'])
+
     def test_real_imu_export_sample_classifies_as_imu(self) -> None:
         matches = ident.classify_sample_bytes(read_fixture_bytes('imu_export_excerpt.csv'))
         self.assertTrue(matches)

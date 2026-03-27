@@ -107,6 +107,7 @@ def archive_bundle_dir(bundle_dir: Path, *, output_path: Optional[Path] = None) 
         'bundle_dir': str(bundle_dir),
         'archive_path': str(archive_path),
         'archive_format': 'tar.gz',
+        'bundle_export_ok': bool(summary.get('bundle_export_ok', True)),
         'bundle_status': summary.get('bundle_status'),
         'run_stage': summary.get('run_stage'),
         'file_count': file_count,
@@ -135,6 +136,7 @@ def cmd_main(args: argparse.Namespace) -> int:
     print(f"[INFO] archive_path={summary['archive_path']}")
     print(f"[INFO] archive_format={summary['archive_format']}")
     print(f"[INFO] run_id={summary['run_id']}")
+    print(f"[INFO] bundle_export_ok={int(bool(summary.get('bundle_export_ok', True)))}")
     print(f"[INFO] bundle_status={summary['bundle_status']}")
     print(f"[INFO] run_stage={summary['run_stage']}")
     print(f"[INFO] file_count={summary['file_count']}")

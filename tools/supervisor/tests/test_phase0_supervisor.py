@@ -61,6 +61,94 @@ class Phase0SupervisorTest(unittest.TestCase):
             self.assertEqual([], unexpected)
             self.assertTrue(any(item.title == 'uwnav_navd_binary' and item.ok for item in results))
 
+    def test_control_only_profile_preflight_paths_exist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            profile = sup.build_profile('control_only')
+            results = sup.run_preflight_checks(profile, Path(tmpdir), skip_port_check=True, enable_device_scan=True)
+            failure_titles = [item.title for item in results if not item.ok]
+            self.assertEqual([], failure_titles)
+            self.assertTrue(any(item.title == 'pwm_control_program_binary' and item.ok for item in results))
+            self.assertTrue(any(item.title == 'gcs_server_binary' and item.ok for item in results))
+            gate = next(item for item in results if item.title == 'startup_profile_gate')
+            self.assertIn('navigation is optional', gate.detail)
+
+    def test_control_only_device_scan_ambiguity_is_warning_only(self) -> None:
+        summary = sup.build_empty_device_scan_summary('auto')
+        summary['ambiguous'] = True
+        summary['ambiguous_devices'] = ['ttyUSB0']
+
+        results = sup.build_device_scan_preflight_results(sup.build_profile('control_only'), summary)
+        ambiguity = next(item for item in results if item.title == 'device_binding_ambiguity')
+        gate = next(item for item in results if item.title == 'startup_profile_gate')
+
+        self.assertTrue(ambiguity.ok)
+        self.assertIn('continue with control + comm only', ambiguity.detail)
+        self.assertTrue(gate.ok)
+
+    def test_empty_device_scan_summary_exposes_rule_maturity_lines(self) -> None:
+        summary = sup.build_empty_device_scan_summary('auto')
+        results = sup.build_device_scan_preflight_results(sup.build_profile('bench'), summary)
+        titles = [item.title for item in results]
+        self.assertIn('device_rule_maturity', titles)
+        self.assertIn('device_static_sample_gaps', titles)
+
+    def test_control_only_capability_stays_runtime_safe_when_imu_is_detected(self) -> None:
+        summary = sup.build_empty_device_scan_summary('auto')
+        summary['device_counts']['imu'] = 1
+        summary['selected_startup_profile'] = {
+            'selected': 'imu_only',
+            'source': 'auto',
+            'launch_mode': 'bench_safe_smoke',
+            'navigation_requirement': 'required',
+            'runtime_level_hint': 'control_nav_optional',
+        }
+        results = sup.build_device_scan_preflight_results(sup.build_profile('control_only'), summary)
+        capability = next(item for item in results if item.title == 'capability_level')
+
+        self.assertIn('active=control_only', capability.detail)
+        self.assertIn('device_ready=attitude_feedback', capability.detail)
+
+    def test_sensor_inventory_marks_imu_required_and_dvl_optional(self) -> None:
+        summary = sup.build_empty_device_scan_summary('auto')
+        inventory = sup.build_sensor_inventory_status(summary, {'level': 'control_only'})
+
+        self.assertEqual('not_present', inventory['imu']['state'])
+        self.assertIn('control_only', inventory['imu']['note'])
+        self.assertEqual('optional_missing', inventory['dvl']['state'])
+        self.assertIn('teleop primary lane 可继续', inventory['dvl']['note'])
+        self.assertEqual('device_scan_inventory', inventory['volt32']['visibility'])
+
+    def test_motion_info_status_reads_latest_control_loop_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            ctrl_logs = root / 'ctrl' / 'logs' / 'control'
+            ctrl_logs.mkdir(parents=True)
+            control_log = ctrl_logs / 'control_loop_20260327_210000.csv'
+            control_log.write_text(
+                '\n'.join([
+                    'mono_ns,nav_roll,nav_pitch,nav_yaw,vel_norm,nav_x,nav_y,nav_z',
+                    '1,0.1,0.2,0.3,0.4,1.0,2.0,3.0',
+                ]),
+                encoding='utf-8',
+            )
+            manifest = {
+                'created_wall_time': datetime.now().astimezone().isoformat(timespec='seconds'),
+                'processes': [
+                    {'name': 'pwm_control_program', 'cwd': str(root / 'ctrl'), 'required_paths': []},
+                ],
+            }
+            capability = {
+                'level': 'relative_nav',
+                'expected_motion_fields': ['roll', 'pitch', 'yaw', 'velocity', 'relative_position'],
+            }
+
+            motion = sup.build_motion_info_status(manifest, capability)
+
+            self.assertEqual('available', motion['state'])
+            self.assertEqual('0.1', motion['values']['roll'])
+            self.assertEqual('0.4', motion['values']['velocity'])
+            self.assertIn('nav_x=1.0', motion['values']['relative_position'])
+
     def test_mock_profile_preflight_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             cmd = [
@@ -180,8 +268,12 @@ class Phase0SupervisorTest(unittest.TestCase):
             bundle_res = subprocess.run(bundle_cmd, capture_output=True, text=True, check=False)
             self.assertEqual(0, bundle_res.returncode, bundle_res.stderr or bundle_res.stdout)
             summary = json.loads(bundle_res.stdout)
+            self.assertTrue(summary['bundle_export_ok'])
             self.assertTrue(summary['bundle_incomplete'])
+            self.assertEqual('child_process_stopped_after_start', summary['run_stage'])
+            self.assertTrue(summary['required_ok'])
             self.assertIn('nav.nav_timing', summary['missing_optional_keys'])
+            self.assertTrue(any('optional artifacts 缺失' in item for item in summary['triage_hints']))
             bundle_dir = Path(summary['bundle_dir'])
             self.assertTrue((bundle_dir / 'bundle_summary.json').exists())
             self.assertTrue((bundle_dir / 'bundle_summary.txt').exists())

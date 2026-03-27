@@ -5,6 +5,345 @@
 - 状态：Authoritative
 - 说明：按时间顺序记录 Codex 每轮完成事项、验证方式、阻塞点、文档更新与 Git 收口情况。
 
+## 2026-03-27（本机 teleop / PWM 命令卡与本地提交准备）
+
+### 完成内容
+
+- 把终端 1 推荐顺序收成 `tools/supervisor/run_local_teleop_smoke.sh` 的 `up / status / down` helper。
+- `local_teleop_smoke_checklist.md` 已补：
+  - helper `up` 为什么会直接返回 shell
+  - `14550` 端口占用时如何 `down + pgrep`
+  - 带 TUI 的最短 teleop / PWM 联调命令卡
+  - `logs/pwm/pwm_log_*.csv` 与 `ch*_cmd` / `ch*_applied` 的查看方式
+- `local_debug_and_field_startup_guide.md` 已同步写入本机 PWM 观察入口和 `--pwm-dummy-print` 最短命令。
+- `documentation_index.md` 已把本机 smoke 清单更新成当前最直接的命令入口。
+
+### 验证结果
+
+- `bash -n tools/supervisor/run_local_teleop_smoke.sh`：通过
+- `cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem && bash tools/supervisor/run_local_teleop_smoke.sh help`：通过
+- `cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem && python3 tools/supervisor/phase0_supervisor.py status --run-root /tmp/phase0_supervisor_local_smoke --json`：通过，并确认当前 run 的 `child_logs_dir`、`motion_info.path` 与 `pwm_control_program` 命令行都已指向本机可读的 PWM / control 日志
+
+### 阻塞点
+
+1. 真实 IMU / DVL / Volt32 仍未完成实机闭环。
+2. `comm_events.csv` 仍未在 `gcs_server` 落地。
+3. 当前 helper 默认是 `--pwm-dummy`；如果需要真实推进器输出，必须由单独现场安全流程放行。
+
+### 文档更新
+
+- 更新了 `local_teleop_smoke_checklist.md`、`local_debug_and_field_startup_guide.md`、`documentation_index.md`。
+
+### Git 收口
+
+- 本轮变更已整理到可按仓本地提交的状态。
+- 未执行 `git push`。
+
+## 2026-03-27（teleop 诊断显示、实机 checklist 与 `comm_events.csv` 最小设计准备）
+
+### 完成内容
+
+- 继续只触碰 supervisor / GCS 低频只读显示 / runbook / handoff / interface docs，不碰核心 authority 主链。
+- `phase0_supervisor.py status --json` 的 `sensor_inventory` 已增加更适合 operator 的诊断字段，能直接表达：
+  - `not_present`
+  - `optional_missing`
+  - 当前设备用于哪些 capability level
+- GCS GUI 现在会把 IMU / DVL 的低频诊断状态翻译成更适合实机调试的文字，不再只显示粗粒度 `device_offline`。
+- 已新增 `docs/runbook/field_validation_checklist.md`，把实机前检查、teleop 流程、姿态反馈检查、relative nav 检查、bundle 导出和常见失败点顺序固定下来。
+- 已把 `comm_events.csv` 的最小字段、最小事件集合和 bundle 接入路径写进权威文档，先完成设计准备，不强行进入高风险实现。
+
+### 验证结果
+
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor`：通过（14 个用例）
+- `python3 -m py_compile tools/supervisor/phase0_supervisor.py tools/supervisor/tests/test_phase0_supervisor.py`：通过
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m unittest tests.test_telemetry_viewmodels tests.test_gui_overview_presenter`：通过（7 个用例）
+- `python3 -m py_compile src/urogcs/telemetry/ui_viewmodels.py src/urogcs/app/gui/overview_presenter.py tests/test_telemetry_viewmodels.py tests/test_gui_overview_presenter.py`：通过
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && QT_QPA_PLATFORM=offscreen bash scripts/run_gui.sh --no-auto-connect --quit-after-ms 200`：通过
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m urogcs.tools.preflight_check --rov-ip 127.0.0.1 --skip-bind-check`：通过
+- `python3 tools/supervisor/phase0_supervisor.py preflight --profile control_only --startup-profile auto --run-root /tmp/phase0_supervisor_field_prep_smoke`：通过
+- `python3 tools/supervisor/phase0_supervisor.py start --profile control_only --startup-profile auto --detach --run-root /tmp/phase0_supervisor_field_prep_smoke --start-settle-s 0.2 --poll-interval-s 0.2 --stop-timeout-s 5.0`：通过
+- `python3 tools/supervisor/phase0_supervisor.py status --run-root /tmp/phase0_supervisor_field_prep_smoke --json`：通过，并确认 `sensor_inventory` 已输出 `count/state/note/required_for_levels/visibility`
+- `python3 tools/supervisor/phase0_supervisor.py stop --run-root /tmp/phase0_supervisor_field_prep_smoke --timeout-s 5.0`：通过
+- `python3 tools/supervisor/phase0_supervisor.py bundle --run-root /tmp/phase0_supervisor_field_prep_smoke --json`：通过，并确认 `run_stage=child_process_stopped_after_start`、`bundle_export_ok=true`、`required_ok=true`
+- `git diff --check`：`UnderwaterRobotSystem` 与 `UnderWaterRobotGCS` 均通过
+
+### 阻塞点
+
+1. 真实 IMU / DVL / Volt32 实机验证仍未完成。
+2. `comm_events.csv` 当前仍停留在最小设计准备，未落地到 `gcs_server`。
+3. `open_failed` / `permission_denied` 仍缺稳定的 runtime 只读状态源。
+
+### 文档更新
+
+- 更新了 `teleop_primary_operator_lane.md`、`local_debug_and_field_startup_guide.md`、`documentation_index.md`。
+- 新增了 `field_validation_checklist.md`。
+- 更新了 handoff / progress / next actions / nightly。
+
+### Git 收口
+
+- 本轮同时修改了 `UnderwaterRobotSystem` 与 `UnderWaterRobotGCS`。
+- 未执行 `git push`。
+
+## 2026-03-27（teleop primary lane 商业化收口继续推进）
+
+### 完成内容
+
+- 继续只触碰 `UnderwaterRobotSystem` 的 supervisor / incident bundle / runbook，以及 `UnderWaterRobotGCS` 的只读状态表达，不触碰核心 C++ authority 主链。
+- 在 `tools/supervisor/incident_bundle.py` 修正 bundle 阶段判定：stop 后导出不再误写成 `child_process_started`，而是明确写成 `child_process_stopped_after_start`。
+- 在 bundle summary / CLI 输出中新增并固定：
+  - `bundle_export_ok`
+  - `bundle_status_meaning=artifact_completeness`
+  - optional 缺失不等于 bundle 导出失败
+- 在 `UnderWaterRobotGCS` 收紧 capability wording：
+  - IMU / DVL 只表示 observation-level hint
+  - 不再把在线传感器条件误写成 runtime authority 已升级
+- 在 runbook / handoff / nightly 进一步冻结 Linux bring-up baseline：
+  - 默认主路径 = teleop primary lane
+  - 默认 profile = `control_only`
+  - 默认 active capability = `control_only`
+  - 默认必选模块 = `pwm_control_program + gcs_server`
+
+### 验证结果
+
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor tools.supervisor.tests.test_bundle_archive`：通过（15 个用例）
+- `python3 -m py_compile tools/supervisor/incident_bundle.py tools/supervisor/phase0_supervisor.py tools/supervisor/bundle_archive.py tools/supervisor/tests/test_phase0_supervisor.py`：通过
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m unittest tests.test_telemetry_viewmodels tests.test_gui_overview_presenter`：通过（6 个用例）
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && QT_QPA_PLATFORM=offscreen bash scripts/run_gui.sh --no-auto-connect --quit-after-ms 200`：通过
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m urogcs.tools.preflight_check --rov-ip 127.0.0.1 --skip-bind-check`：通过
+- `python3 tools/supervisor/phase0_supervisor.py preflight --profile control_only --startup-profile auto --run-root /tmp/phase0_supervisor_commercial_lane_smoke`：通过
+- `python3 tools/supervisor/phase0_supervisor.py start --profile control_only --startup-profile auto --detach --run-root /tmp/phase0_supervisor_commercial_lane_smoke ...`：通过
+- `python3 tools/supervisor/phase0_supervisor.py status --run-root /tmp/phase0_supervisor_commercial_lane_smoke --json`：通过
+- `python3 tools/supervisor/phase0_supervisor.py stop --run-root /tmp/phase0_supervisor_commercial_lane_smoke --timeout-s 5.0`：通过
+- `python3 tools/supervisor/phase0_supervisor.py bundle --run-root /tmp/phase0_supervisor_commercial_lane_smoke --json`：通过，并确认 `run_stage=child_process_stopped_after_start`、`bundle_export_ok=true`
+
+### 阻塞点
+
+1. 真实 `imu_only` / `imu_dvl` bench 仍未完成。
+2. `comm_events.csv` 仍未落地。
+3. GCS 当前 capability 仍是 observation-level hint，不是来自 supervisor runtime 的 authoritative 升级信号；如果后续要彻底收口，需要新的跨进程状态来源。
+4. 真实设备静态身份样本仍不足。
+
+### 文档更新
+
+- 已把 Linux bring-up / config baseline、bundle completeness 语义、设备未就绪时推荐工作方式同步到 runbook / handoff / nightly。
+- 已把“设备就绪后按 `imu_only -> imu_dvl` 恢复验证”继续写死到 handoff / next actions。
+
+### Git 收口
+
+- 本轮同时修改了 `UnderwaterRobotSystem` 与 `UnderWaterRobotGCS`。
+- 未执行 `git push`。
+
+## 2026-03-27（teleop primary lane 与 motion/status 观察面收口）
+
+### 完成内容
+
+- 继续只触碰 `UnderwaterRobotSystem` 的 supervisor / GCS / runbook / handoff，不触碰核心 C++ authority 主链。
+- 在 `tools/supervisor/device_profiles.py` 明确补出 capability level / summary / expected motion fields：
+  - `control_only`
+  - `attitude_feedback`
+  - `relative_nav`
+  - `full_stack_preview`
+- 在 `tools/supervisor/phase0_supervisor.py` 增加 teleop primary lane 相关输出：
+  - `sensor_inventory`
+  - `capability`
+  - `operator_lane`
+  - `motion_info`
+- 把 `control_only` 的 motion 信息解释收紧为：
+  - `motion_info.state=not_enabled_for_capability` 属于预期
+  - 不再把它写成字段映射失败
+- 在 `UnderWaterRobotGCS` 收口只读状态表达：
+  - GUI `Navigation` 卡片改为 `Motion Info`
+  - `Devices` / `Motion Info` 卡片改成 capability-aware 文案
+  - footer 明确 TUI 是 teleop 主入口、GUI 只是只读 observer
+- 修正了 GCS preflight 的启动顺序 drift，不再默认要求“先起导航再起控制”。
+- 新增：
+  - `docs/architecture/teleop_primary_operator_lane.md`
+- 更新：
+  - `docs/documentation_index.md`
+  - `docs/runbook/local_debug_and_field_startup_guide.md`
+  - `docs/runbook/gcs_ui_operator_guide.md`
+  - `docs/handoff/CODEX_HANDOFF.md`
+  - `docs/handoff/CODEX_NEXT_ACTIONS.md`
+  - `docs/productization/nightly_upgrade_progress.md`
+
+### 验证结果
+
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor`：通过（13 个用例）
+- `python3 -m py_compile tools/supervisor/device_profiles.py tools/supervisor/phase0_supervisor.py tools/supervisor/tests/test_phase0_supervisor.py`：通过
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m unittest tests.test_telemetry_viewmodels tests.test_gui_overview_presenter`：通过（6 个用例）
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && QT_QPA_PLATFORM=offscreen bash scripts/run_gui.sh --no-auto-connect --quit-after-ms 200`：通过
+- `python3 tools/supervisor/phase0_supervisor.py preflight --profile control_only --startup-profile auto --run-root /tmp/phase0_supervisor_teleop_primary_smoke`：通过
+- `python3 tools/supervisor/phase0_supervisor.py start --profile control_only --startup-profile auto --detach --run-root /tmp/phase0_supervisor_teleop_primary_smoke ...`：通过
+- `python3 tools/supervisor/phase0_supervisor.py status --run-root /tmp/phase0_supervisor_teleop_primary_smoke --json`：通过
+- `python3 tools/supervisor/phase0_supervisor.py stop --run-root /tmp/phase0_supervisor_teleop_primary_smoke --timeout-s 5.0`：通过
+- `python3 tools/supervisor/phase0_supervisor.py bundle --run-root /tmp/phase0_supervisor_teleop_primary_smoke --json`：通过
+
+### 阻塞点
+
+1. 当前 GUI 仍没有新增 UDP 数值姿态/速度协议，因此数值 motion snapshot 仍主要依赖 supervisor `status --json` 与 `control_loop_*.csv`。
+2. `attitude_feedback` / `relative_nav` 当前仍主要是升级能力定义和外围表达，真实激活仍依赖后续 `imu_only` / `imu_dvl` bench。
+3. `comm_events.csv` 仍未落地。
+4. 真实设备静态身份样本仍不足。
+
+### 文档更新
+
+- 已把“遥控路径优先”“IMU-only 不是完整导航”“DVL 是可选增强”“GUI/TUI/supervisor status 分工”写入新的 architecture / runbook / handoff / nightly 基线。
+- 已把 `gcs_ui_operator_guide.md` 和 GCS preflight wording 同步到新的 teleop 主路径，避免继续漂移。
+
+### Git 收口
+
+- 本轮同时修改了 `UnderwaterRobotSystem` 与 `UnderWaterRobotGCS`。
+- 未执行 `git push`。
+
+## 2026-03-27（`control_only` 最小可运行路径与导航可选收口）
+
+### 完成内容
+
+- 继续只触碰 `UnderwaterRobotSystem` 的 supervisor / preflight / runbook / handoff，不触碰核心 C++ authority 主链。
+- 在 `tools/supervisor/device_profiles.py` 明确补出：
+  - `navigation_requirement`
+  - `runtime_level_hint`
+  并让 `startup-profiles --json` 直接暴露当前 startup profile 与运行等级的关系。
+- 在 `tools/supervisor/phase0_supervisor.py` 新增并固定 `control_only`：
+  - 作为当前默认 supervisor profile
+  - `preflight` / `start` / `_run` 默认改为 `control_only`
+  - `control_only` 只启动 `pwm_control_program + gcs_server`
+  - `device-scan` / `startup_profile_gate` 在 `control_only` 下只表达导航 readiness，不再把导航缺失当成 fatal
+- 在 `tools/supervisor/tests/test_phase0_supervisor.py` 补最小回归：
+  - `control_only` preflight
+  - `control_only` 下歧义设备识别仅作为 warning / info，不阻塞启动
+- 新增：
+  - `docs/architecture/minimum_viable_runtime_profiles.md`
+- 更新：
+  - `docs/documentation_index.md`
+  - `docs/runbook/local_debug_and_field_startup_guide.md`
+  - `docs/handoff/CODEX_HANDOFF.md`
+  - `docs/handoff/CODEX_NEXT_ACTIONS.md`
+  - `docs/productization/nightly_upgrade_progress.md`
+
+### 验证结果
+
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor`：通过（11 个用例）
+- `python3 tools/supervisor/phase0_supervisor.py preflight --profile control_only --run-root /tmp/phase0_supervisor_control_only_smoke`：通过
+- `python3 tools/supervisor/phase0_supervisor.py start --profile control_only --detach --run-root /tmp/phase0_supervisor_control_only_smoke --start-settle-s 0.2 --poll-interval-s 0.2 --stop-timeout-s 5.0`：通过
+- `python3 tools/supervisor/phase0_supervisor.py status --run-root /tmp/phase0_supervisor_control_only_smoke --json`：通过，并确认只拉起 `pwm_control_program` 与 `gcs_server`
+- `python3 tools/supervisor/phase0_supervisor.py stop --run-root /tmp/phase0_supervisor_control_only_smoke --timeout-s 5.0`：通过
+- `python3 tools/supervisor/phase0_supervisor.py bundle --run-root /tmp/phase0_supervisor_control_only_smoke --json`：通过，并确认 nav 相关缺失键属于 optional
+
+### 阻塞点
+
+1. 当前仍未补到新的真实 IMU / DVL / Volt32 静态身份样本。
+2. `imu_only` / `imu_dvl` 真实 bench 仍未完成。
+3. GCS / GUI 当前虽然已经能显示 `Invalid / stale,invalid,NoData`，但“导航未启用”的 operator wording 仍可继续优化。
+4. `control_nav_optional` 目前还是设计映射，不是独立落地的 supervisor process graph。
+
+### 文档更新
+
+- 已把“当前默认运行等级 = `control_only`”写入 architecture / runbook / handoff / nightly。
+- 已明确：没有导航时可以做什么、不能做什么、什么时候才恢复把导航作为强依赖场景。
+
+### Git 收口
+
+- 本轮代码与文档改动只在 `UnderwaterRobotSystem`
+- 未执行 `git push`
+
+## 2026-03-27（商业化升级审查与路线图）
+
+### 完成内容
+
+- 基于当前最新代码、runbook、handoff、nightly 和阶段成果，对 UnderwaterRobotSystem 做了一轮“面向商业化落地”的项目审查。
+- 新增：
+  - `docs/architecture/commercialization_review.md`
+- 更新：
+  - `docs/documentation_index.md`
+  - `docs/handoff/CODEX_HANDOFF.md`
+  - `docs/handoff/CODEX_NEXT_ACTIONS.md`
+  - `docs/productization/nightly_upgrade_progress.md`
+- 审查结论已明确：
+  1. 当前系统更接近 `bench-safe` 工程集成平台，而不是现场可稳定交付的商业化产品。
+  2. 已具备产品化基础的模块主要在 supervisor、incident bundle、TUI 基线、GUI overview preview、device gate 和日志骨架。
+  3. 当前最大商业化短板主要是：真实设备闭环不足、交付路径未冻结、`comm_events.csv` 缺失、文档与提示口径存在小范围漂移。
+  4. 下一轮应优先收口：真实 `imu_only` / `imu_dvl` bench、operator path、delivery / config baseline。
+
+### 验证结果
+
+- 本轮为 docs-only 审查与路线设计。
+- 已对最新 supervisor、GCS、runbook、handoff、logging contract、nightly 进行只读核对。
+- 未做新的构建、单测、真机、ROS2 graph 或 replay 运行时验证。
+
+### 阻塞点
+
+1. 真实设备样本与 `imu_only` / `imu_dvl` bench 仍未完成。
+2. `gcs_server` 命令链结构化日志仍未补齐。
+3. 交付级安装 / 打包 / 版本治理仍未冻结。
+4. authoritative 文档与启动提示仍有小范围漂移，需要后续继续收口。
+
+### 文档更新
+
+- 新增商业化审查文档，作为下一轮非导航侧产品化收口的总参考。
+- 已把“先做什么、后做什么、暂缓什么”的路线图同步到 handoff / next actions / nightly。
+- 已把 `documentation_index.md` 的总体基线与运行 runbook 列表对齐到当前真实执行入口。
+
+### Git 收口
+
+- 本轮变更只在 `UnderwaterRobotSystem` 文档仓。
+- 未执行 `git push`。
+
+## 2026-03-27（真实设备规则成熟度与 bench 前准备收口）
+
+### 完成内容
+
+- 继续只触碰 `UnderwaterRobotSystem` 的 supervisor / preflight / runbook / handoff，不触碰核心 C++ authority 主链。
+- 在 `tools/supervisor/device_identification_rules.json` 增加字段级静态成熟度和缺失样本说明：
+  - `/dev/serial/by-id`
+  - `vendor_id`
+  - `product_id`
+  - `serial`
+  - `manufacturer`
+  - `product`
+- 在 `tools/supervisor/device_identification.py` 增加：
+  - `rule_catalog`
+  - `rule_maturity_summary`
+  - `static_sample_gap_summary`
+  - `rule_support.static_fields`
+  - `rule_support.sample_gaps`
+- 在 `tools/supervisor/phase0_supervisor.py preflight` 增加：
+  - `device_rule_maturity`
+  - `device_static_sample_gaps`
+- 补最小回归：
+  - `tools/supervisor/tests/test_device_identification.py`
+  - `tools/supervisor/tests/test_phase0_supervisor.py`
+- 更新：
+  - `docs/architecture/device_identification_and_profiles_plan.md`
+  - `docs/runbook/local_debug_and_field_startup_guide.md`
+  - `docs/handoff/CODEX_HANDOFF.md`
+  - `docs/handoff/CODEX_NEXT_ACTIONS.md`
+  - `docs/productization/nightly_upgrade_progress.md`
+
+### 验证结果
+
+- `python3 -m py_compile tools/supervisor/device_identification.py tools/supervisor/device_profiles.py tools/supervisor/phase0_supervisor.py tools/supervisor/tests/test_device_identification.py tools/supervisor/tests/test_phase0_supervisor.py`：通过
+- `python3 -m unittest tools.supervisor.tests.test_device_identification tools.supervisor.tests.test_phase0_supervisor`：通过（20 个用例）
+- `python3 tools/supervisor/phase0_supervisor.py device-scan --sample-policy off --json`：通过，并确认新增 `rule_catalog` / `rule_maturity_summary` / `static_sample_gap_summary`
+- `python3 tools/supervisor/phase0_supervisor.py preflight --profile bench --startup-profile auto --run-root /tmp/phase0_supervisor_device_rule_prep`：按预期失败，但已确认新增 `device_rule_maturity` / `device_static_sample_gaps` 输出
+
+### 阻塞点
+
+1. 当前仍没有新增真实 `/dev/serial/by-id` / sysfs 静态快照，因此 IMU / Volt32 / DVL 静态规则仍不能升级成强绑定规则。
+2. IMU live serial 主动探测仍未实现。
+3. Volt32 仍缺真实 live `CHn:` 原始行样本。
+4. `imu_only` / `imu_dvl` 仍未完成真实 bench `start -> status -> stop -> bundle` 全链路样本。
+
+### 文档更新
+
+- 已把“已验证规则 / 候选规则 / 仍需样本”的口径写入 architecture / runbook / handoff / nightly。
+- 已明确为什么下一步优先做 `imu_only` / `imu_dvl`，以及为什么暂时不推进 USBL 和更复杂 profile。
+
+### Git 收口
+
+- 本轮代码与文档改动只在 `UnderwaterRobotSystem`
+- 未执行 `git push`
+
 ## 2026-03-21
 
 ### 完成内容

@@ -110,6 +110,224 @@
    - Volt32 原始串口行样本
    - USBL 真实样本规则
 
+## 0.30 2026-03-27 真实 bench 前准备当前状态
+
+当前已经新增并确认：
+
+1. `device-scan --json` 已能直接输出：
+   - `rule_catalog`
+   - `rule_maturity_summary`
+   - `static_sample_gap_summary`
+2. `preflight --profile bench --startup-profile auto` 已能直接输出：
+   - `device_rule_maturity`
+   - `device_static_sample_gaps`
+3. 当前规则成熟度应按以下口径执行：
+   - IMU：静态规则仍全是 `candidate_only`，动态规则仍是 `partial`
+   - DVL：动态规则已是 `sample_backed`，静态规则仍全是 `candidate_only`
+   - Volt32：导出样本支撑已足够，但 live `CHn:` 仍是 `partial`，静态规则仍全是 `candidate_only`
+4. 当前没有新增真实 `/dev/serial/by-id` / sysfs 样本，因此本轮不应宣称“静态规则已完成收口”。
+
+因此下一轮最优先做：
+
+1. 在真实 bench 上补采：
+   - `/dev/serial/by-id`
+   - `vendor_id / product_id / serial`
+   - `manufacturer / product`
+2. 按固定顺序验证：
+   - `imu_only`
+   - `imu_dvl`
+3. 继续只在 supervisor / preflight / runbook 侧推进，不改核心 authority 主链。
+4. 暂时不推进 USBL、`imu_dvl_usbl` 或 `full_stack`。
+
+## 0.35 2026-03-27 商业化审查后的执行优先级
+
+当前总体判断：
+
+1. 项目已经具备 `bench-safe` 集成平台与 operator preview 基础，但还不是现场可稳定交付的商业化产品。
+2. 下一轮应先把“真实 bench + operator path + delivery path”收口，再考虑任何新的核心链路增强。
+
+因此下一轮按以下顺序执行：
+
+1. 如果真实设备已就绪：
+   - 先补静态身份快照
+   - 再做 `imu_only` 真实 bench `start -> status -> stop -> bundle`
+   - 再做 `imu_dvl` 真实 bench `start -> status -> stop -> bundle`
+2. 如果真实设备暂未就绪：
+   - 先修正 GCS preflight 与 runbook / supervisor 的启动顺序口径漂移
+   - 先收口 `documentation_index.md` 与新基线 runbook 的引用关系
+   - 再补 Linux / Windows 依赖与启动边界说明
+3. 在外围收口稳定前，只允许把 `comm_events.csv` 当成“下一个候选核心小点”做最小设计或最小实现，不允许并行改多个核心 C++ 模块。
+4. 下一轮若继续做商业化收口，优先顺序固定为：
+   - 真实设备闭环
+   - operator path
+   - delivery / config baseline
+   - command / comm observability
+5. 暂不推进：
+   - USBL、`imu_dvl_usbl`、`full_stack`
+   - 导航融合 / ESKF 大改
+   - ROS2 写回或 authority 化
+   - GUI 平台化重做
+
+## 0.60 2026-03-27 当前本机执行口径：优先使用 helper 和最短 PWM 联调命令卡
+
+在真实设备未完全就绪前，当前本机默认执行方式继续固定为：先用 helper 跑 teleop primary lane，再按需要查看 PWM 日志，不扩新主路径。
+
+因此当前默认顺序固定为：
+
+1. 终端 1 优先使用：`bash tools/supervisor/run_local_teleop_smoke.sh up|status|down`。
+2. 如果 helper `up` 返回 shell，不要直接判失败；它使用的是 `start --detach`。真正状态以 `run_local_teleop_smoke.sh status` 和 `pgrep -af "gcs_server|phase0_supervisor.py|pwm_control_program"` 为准。
+3. 如果出现 `14550` 端口占用，优先：
+   - 用同一个 `RUN_ROOT` 执行 `run_local_teleop_smoke.sh down`
+   - 再查 `pgrep`
+4. 当前本机 PWM 反馈优先看：
+   - `OrangePi_STM32_for_ROV/logs/pwm/pwm_log_*.csv`
+   - 重点列：`ch*_cmd`、`ch*_applied`
+5. 如果只想本机验证 PWM 计算链，不带 teleop，可单独执行：
+   - `./pwm_control_program --no-teleop --pwm-dummy --pwm-dummy-print`
+6. 设备就绪后恢复顺序仍固定为：
+   - `imu_only`
+   - `imu_dvl`
+
+额外要求：
+
+- 当前继续默认停在 `control_only`。
+- `IMU-only` 继续只解释成 `attitude_feedback`。
+- `DVL` 继续只解释成外接可选增强。
+
+## 0.55 2026-03-27 下一轮继续执行口径：先完成实机前 checklist 与最小 comm 排障链
+
+当前由于真实设备仍未完全就绪，下一轮继续只做 teleop primary lane 的实机前准备，不扩新主路径。
+
+因此下一轮优先顺序固定为：
+
+1. 保持默认主路径不变：teleop primary lane。
+2. 保持默认能力等级不变：`control_only`。
+3. 当前继续把 IMU / DVL 只当成增强观察条件：
+   - `attitude_feedback`
+   - `relative_nav`
+4. 若继续补代码，只允许做这些外围小点：
+   - `comm_events.csv` 的最小低频落地
+   - supervisor / GUI 诊断 wording
+   - runbook / checklist / bundle 指南
+5. 若设备就绪，恢复验证顺序固定为：
+   - `imu_only`
+   - `imu_dvl`
+6. 当前继续禁止：
+   - 自动控制主路径扩面
+   - 导航融合 / ESKF 大改
+   - USBL / `full_stack`
+   - ROS2 authority 化
+
+额外要求：
+
+- `open_failed` / `permission_denied` 没有稳定 runtime 状态源之前，不要在 GUI 里伪造细粒度原因。
+- `comm_events.csv` 一旦开始实现，也只允许先做 `gcs_server` 单点、低频 CSV，不并行扩多个核心模块。
+
+## 0.50 2026-03-27 下一轮继续执行口径：先做 teleop primary lane 商业化收口
+
+当前由于真实设备仍未就绪，下一轮继续只做非导航侧商业化收口，不新增主路径。
+
+因此下一轮按以下顺序执行：
+
+1. 当前默认主路径继续固定为 teleop primary lane：
+   - `device-check -> device-scan -> startup-profiles -> preflight -> start -> status -> teleop -> stop -> bundle`
+2. 当前默认能力等级继续固定为：`control_only`。
+3. 当前已成熟、可直接使用的能力只有：
+   - `control_only`
+   - teleop primary lane
+   - bundle export / bundle triage 新语义
+4. 当前已定义、但还不能写成“已实机闭环”的能力只有：
+   - `attitude_feedback`
+   - `relative_nav`
+5. 当前仍只保留为预留能力的是：
+   - `full_stack_preview`
+6. 若设备仍未就绪，下一轮优先做：
+   - 继续补 Linux delivery / config baseline
+   - 继续补 operator wording / Motion Info 说明
+   - 继续补 `comm_events.csv` 的最小设计或最小实现准备
+7. 若设备已就绪，恢复顺序固定为：
+   - 静态身份快照补采
+   - `imu_only`
+   - `imu_dvl`
+8. 当前继续禁止：
+   - 自动控制主路径扩面
+   - 导航融合 / ESKF 大改
+   - USBL / `full_stack`
+   - ROS2 authority 化
+
+额外要求：
+
+- GCS / GUI 当前 capability 只能解释成 observation-level hint，不得包装成 runtime authority 已升级。
+- bundle `incomplete` 必须继续解释成 artifact completeness，不得再写成 bundle 导出失败。
+
+## 0.45 2026-03-27 当前默认执行口径：teleop primary lane 优先
+
+当前由于真实设备仍未完全就绪，下一轮执行优先级已经进一步收口为：先把“遥控 + 状态观察 + 日志导出 + bundle”这条主路径做成唯一稳定 operator lane。
+
+因此下一轮按以下顺序执行：
+
+1. 默认只围绕当前 teleop primary lane 推进：
+   - `device-check`
+   - `device-scan`
+   - `startup-profiles`
+   - `preflight`
+   - `start`
+   - `status`
+   - `teleop`
+   - `stop`
+   - `bundle`
+2. 当前 capability 口径必须固定为：
+   - `control_only`：当前默认激活能力
+   - `attitude_feedback`：IMU-only 升级能力，不得写成完整导航
+   - `relative_nav`：IMU + DVL 升级能力，不得写成绝对定位
+   - `full_stack_preview`：继续保留，不展开
+3. 若设备仍未就绪，下一轮最值得做的是：
+   - 继续补 GCS wording / operator guidance
+   - 继续补 bundle 摘要 / status 文案
+   - 继续补 Linux delivery / config baseline
+4. 若设备已就绪，再按固定顺序恢复：
+   - 静态身份快照补采
+   - `imu_only`
+   - `imu_dvl`
+5. 当前继续禁止：
+   - 自动控制主路径扩面
+   - 导航融合 / ESKF 大改
+   - USBL / `full_stack`
+   - ROS2 authority 化
+   - GUI 平台化重写
+
+额外要求：
+
+- 任何输出都必须明确区分 `active capability` 和 `device-ready capability`。
+- 不允许因为“IMU / IMU + DVL 已识别”就把 `control_only` runtime 误写成当前已经进入姿态反馈或相对导航。
+
+## 0.40 2026-03-27 当前默认执行口径：先收口 `control_only`
+
+当前由于真实导航设备暂未就绪，默认执行口径已经切换为：先把 `control_only` 做成唯一稳定 operator lane，再把导航当成条件满足时的可选增强模块。
+
+因此从下一轮开始，按以下规则执行：
+
+1. `control_only` 是当前默认运行等级。
+2. `bench` 不再是默认启动路径，只是 nav preview / safe smoke lane。
+3. `startup_profile=no_sensor / volt_only` 不再被解释成“整个系统 fatal”；当前只表示导航未启用或导航 readiness 不满足。
+4. 只有在静态身份样本补齐、`imu_only` / `imu_dvl` 真实 bench 完成后，才恢复把导航当成强依赖场景。
+
+因此下一轮最优先顺序固定为：
+
+1. 如果设备仍未就绪：
+   - 继续围绕 `control_only` 做 operator lane / runbook / bundle / delivery baseline 收口
+   - 允许继续补极小 supervisor / preflight / GCS 提示
+   - 不再把“导航未起”当成默认阻塞项
+2. 如果设备已就绪：
+   - 先补静态身份快照
+   - 再做 `imu_only` 真实 bench
+   - 再做 `imu_dvl` 真实 bench
+3. 暂不推进：
+   - USBL、`imu_dvl_usbl`、`full_stack`
+   - 导航融合 / ESKF 大改
+   - ROS2 authority 化
+   - GUI 平台化重写
+
 ## 1. 当前最高优先级任务
 
 当前最高优先级任务是：
