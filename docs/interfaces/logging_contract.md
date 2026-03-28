@@ -400,6 +400,46 @@ logs/
 2. 传感器 raw / parsed / event 日志归到 `sensors/` 下。
 3. incident bundle 的导出目录必须能反向引用本次 `run_id`。
 
+## 7.4 `comm_events.csv` 最小字段建议
+
+当前阶段只冻结 `gcs_server` 的最小命令/ACK/结果排障链，不做高频通信平台。
+
+建议最小文件位置：
+
+- 运行时：`logs/<YYYY-MM-DD>/<run_id>/comm/comm_events.csv`
+- bundle 内：`events/gcs_server/comm_events.csv`
+
+建议最小 CSV 字段：
+
+1. `mono_ns`
+2. `wall_time`
+3. `event`
+4. `severity`
+5. `session_id`
+6. `link_state`
+7. `tx_seq`
+8. `ack_seq`
+9. `intent_cmd_seq`
+10. `command_kind`
+11. `command_status`
+12. `result`
+13. `detail`
+
+建议最小事件集合：
+
+1. `comm_link_state`
+2. `session_state_changed`
+3. `command_sent`
+4. `command_ack`
+5. `command_ack_timeout`
+6. `command_result`
+
+规则：
+
+- 一条事件只记录一个低频生命周期变化。
+- 不按每个 packet 或 STATUS 帧写日志。
+- 当前目标是让 operator / developer 能把 `command -> ack -> timeout/result` 这条链补齐到 bundle。
+
 ## 8. Incident Bundle 对接方式
 
 incident bundle 不应依赖“猜测目录”。

@@ -1,0 +1,3 @@
+serial debug placeholder
+heartbeat: 42
+no known sensor token here

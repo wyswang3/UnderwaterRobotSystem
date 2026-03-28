@@ -7,17 +7,350 @@
 
 ## 日期
 
-2026-03-25
+2026-03-27
 
 ## 当前目标
 
-本轮目标已经从“Phase 0 薄 supervisor / launcher 原型落地”推进到“真实安全烟测准备 + 最小 operator 可操作性收口”，重点仍然是：
+本轮最新目标是在不放宽安全边界的前提下，把“怎么本地调试、怎么板上启动、哪些改动属于高风险核心主链”固定成新的执行基线。重点是：
 
-1. 不触碰 authority 主链
-2. 优先让真实 `bench` safe smoke 有最小可复现入口
-3. 在环境不具备时，把 failure-path 诊断做清楚，而不是把失败留给黑盒进程输出
+1. 把核心 C++ 主链改动收紧到单模块、单点、单轮最小回归
+2. 优先继续推进外围模块的启动、诊断、日志和 bundle 收口
+3. 先把本地调试 / field startup / 日志导出流程文档化，再决定是否进入核心代码修补
+4. 把设备识别与分级启动 profile 先做成外围 gate，避免 tty 跳变和设备误绑直接带进 authority 进程
+5. 用真实 IMU / Volt32 / DVL 样本把设备识别规则从启发式收紧成样本支撑
 
-## 本轮完成项
+## 2026-03-27 追加进展：本机 teleop / PWM 命令卡与本地提交准备
+
+本轮继续只做 teleop primary lane 的本机调试收口，不碰核心 authority 主链。
+
+### 已落地
+
+1. 已把终端 1 推荐顺序收成 `run_local_teleop_smoke.sh up|status|down` helper。
+2. `local_teleop_smoke_checklist.md` 现已覆盖：
+   - helper `up` 返回 shell 的 `--detach` 语义
+   - `14550` 端口占用时的 `down + pgrep` 排查
+   - 带 TUI 的最短 teleop / PWM 联调命令卡
+   - `logs/pwm/pwm_log_*.csv` 的 PWM 反馈查看方法
+3. `local_debug_and_field_startup_guide.md` 已同步补上本机 PWM 观察入口和 `--pwm-dummy-print` 最短命令。
+
+### 本轮验证
+
+已执行：
+
+- `bash -n tools/supervisor/run_local_teleop_smoke.sh`
+- `cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem && bash tools/supervisor/run_local_teleop_smoke.sh help`
+- `cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem && python3 tools/supervisor/phase0_supervisor.py status --run-root /tmp/phase0_supervisor_local_smoke --json`
+
+### 当前结论
+
+1. 当前 teleop primary lane 已经具备可直接抄用的本机命令卡。
+2. 当前默认能力等级仍是 `control_only`。
+3. 当前本机 PWM 反馈优先看 `logs/pwm/pwm_log_*.csv`，不是默认在终端里刷帧。
+4. 若只想验证 PWM 计算链，可单独跑 `--pwm-dummy-print`；这不等于真实推进器放行。
+
+## 2026-03-27 追加进展：teleop 诊断显示、实机 checklist 与 `comm_events.csv` 最小设计准备
+
+本轮继续只做 teleop primary lane 的实机前准备，不碰核心 authority 主链。
+
+### 已落地
+
+1. supervisor `status --json` 已补更适合 operator 的低频传感器诊断字段。
+2. GUI `Devices` / `Motion Info` 已补更可读的 IMU / DVL 低频状态说明。
+3. 当前已明确：
+   - GUI / STATUS 先负责低频只读观察
+   - `preflight` / `last_fault_summary.txt` / child logs 再负责更底层的打开失败、权限与格式细节
+4. 已新增 `field_validation_checklist.md`，固定实机前检查和现场顺序。
+5. 已把 `comm_events.csv` 的最小字段、最小事件集合、运行时路径和 bundle 路径冻结进文档。
+
+### 本轮验证
+
+已执行：
+
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor`
+- `python3 -m py_compile tools/supervisor/phase0_supervisor.py tools/supervisor/tests/test_phase0_supervisor.py`
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m unittest tests.test_telemetry_viewmodels tests.test_gui_overview_presenter`
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && QT_QPA_PLATFORM=offscreen bash scripts/run_gui.sh --no-auto-connect --quit-after-ms 200`
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m urogcs.tools.preflight_check --rov-ip 127.0.0.1 --skip-bind-check`
+- `python3 tools/supervisor/phase0_supervisor.py preflight --profile control_only --startup-profile auto --run-root /tmp/phase0_supervisor_field_prep_smoke`
+- `python3 tools/supervisor/phase0_supervisor.py start --profile control_only --startup-profile auto --detach --run-root /tmp/phase0_supervisor_field_prep_smoke --start-settle-s 0.2 --poll-interval-s 0.2 --stop-timeout-s 5.0`
+- `python3 tools/supervisor/phase0_supervisor.py status --run-root /tmp/phase0_supervisor_field_prep_smoke --json`
+- `python3 tools/supervisor/phase0_supervisor.py stop --run-root /tmp/phase0_supervisor_field_prep_smoke --timeout-s 5.0`
+- `python3 tools/supervisor/phase0_supervisor.py bundle --run-root /tmp/phase0_supervisor_field_prep_smoke --json`
+- `git diff --check`
+
+### 当前结论
+
+1. 当前 teleop primary lane 已经不只是“能跑起来”，而是更接近“实机前可稳定复核”的底座。
+2. 当前默认能力等级仍然是 `control_only`。
+3. `IMU-only` 仍只允许写成 `attitude_feedback`。
+4. `DVL` 仍只允许写成外接可选增强模块。
+5. 下一步若设备就绪，仍按 `imu_only -> imu_dvl` 的顺序恢复验证。
+
+## 2026-03-27 追加进展：teleop primary lane 商业化可用性继续收口
+
+本轮继续只做非导航侧商业化收口，不碰核心 C++ authority 主链。
+
+### 已落地
+
+1. GCS / GUI wording 已进一步收紧：
+   - `control_only` 只代表当前默认可直接使用的遥控与调试底座
+   - `attitude_feedback` 只代表 IMU 在线时的姿态观察能力
+   - `relative_nav` 只代表 IMU + DVL 在线时的相对运动观察能力
+2. GUI `Devices` / `Motion Info` 当前统一改用 `observation_level` 口径，避免把在线传感器条件误导成 authority runtime 已升级。
+3. bundle summary / CLI 语义已进一步收口：
+   - `bundle_export_ok`：导出动作成功
+   - `bundle_status`：artifact completeness
+   - `child_process_stopped_after_start`：run 曾启动 authority 子进程，但导出时已停止
+4. 当前 Linux bring-up / config baseline 已进一步冻结：
+   - 默认主路径：teleop primary lane
+   - 默认 profile：`control_only`
+   - 默认 active capability：`control_only`
+   - 默认必选模块：`pwm_control_program`、`gcs_server`
+5. 当前能力状态应按以下口径执行：
+   - 已成熟可直接使用：`control_only`
+   - 已定义但待真实 bench：`attitude_feedback`、`relative_nav`
+   - 仍是预留：`full_stack_preview`
+
+### 本轮验证
+
+已执行：
+
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor tools.supervisor.tests.test_bundle_archive`
+- `python3 -m py_compile tools/supervisor/incident_bundle.py tools/supervisor/phase0_supervisor.py tools/supervisor/bundle_archive.py tools/supervisor/tests/test_phase0_supervisor.py`
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m unittest tests.test_telemetry_viewmodels tests.test_gui_overview_presenter`
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && QT_QPA_PLATFORM=offscreen bash scripts/run_gui.sh --no-auto-connect --quit-after-ms 200`
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m urogcs.tools.preflight_check --rov-ip 127.0.0.1 --skip-bind-check`
+- `python3 tools/supervisor/phase0_supervisor.py preflight --profile control_only --startup-profile auto --run-root /tmp/phase0_supervisor_commercial_lane_smoke`
+- `python3 tools/supervisor/phase0_supervisor.py start --profile control_only --startup-profile auto --detach --run-root /tmp/phase0_supervisor_commercial_lane_smoke --start-settle-s 0.2 --poll-interval-s 0.2 --stop-timeout-s 5.0`
+- `python3 tools/supervisor/phase0_supervisor.py status --run-root /tmp/phase0_supervisor_commercial_lane_smoke --json`
+- `python3 tools/supervisor/phase0_supervisor.py stop --run-root /tmp/phase0_supervisor_commercial_lane_smoke --timeout-s 5.0`
+- `python3 tools/supervisor/phase0_supervisor.py bundle --run-root /tmp/phase0_supervisor_commercial_lane_smoke --json`
+
+### 当前结论
+
+1. 当前 teleop primary lane 已经进一步收口成“可启动、可观察、可记录、可导出”的商业化基础版本。
+2. `bundle_status=incomplete` 不再等于“bundle 导出失败”；当前要先看 `bundle_export_ok` 与 `required_ok`。
+3. 设备未就绪时，推荐工作方式继续是：
+   - 停在 `control_only`
+   - 用 TUI 做 teleop
+   - 用 GUI / `status --json` 看状态与 motion info
+   - 导出 bundle 做排障
+4. 设备就绪后仍按固定顺序恢复：
+   - `imu_only`
+   - `imu_dvl`
+
+## 2026-03-27 追加进展：teleop primary lane 与 motion/status 观察面收口
+
+本轮继续只做低风险外围收口，不碰核心 C++ authority 主链。
+
+### 已落地
+
+1. 当前唯一默认主路径已经固定为 teleop primary lane：
+   - `device-check -> device-scan -> startup-profiles -> preflight -> start -> status -> teleop -> stop -> bundle`
+2. supervisor 现在会稳定暴露：
+   - `sensor_inventory`
+   - `capability`
+   - `operator_lane`
+   - `motion_info`
+3. capability 口径已经明确收口：
+   - `control_only`
+   - `attitude_feedback`
+   - `relative_nav`
+   - `full_stack_preview`
+4. 当前已明确区分：
+   - `active capability`
+   - `device-ready capability`
+5. GCS 当前已完成低风险只读收口：
+   - GUI `Motion Info` 卡片显示 capability-aware 文案
+   - `Devices` 卡片不再把“没有 DVL / 没有完整导航”直接写成 fatal
+   - footer 明确 TUI 是 teleop 主入口、GUI 只是只读 observer
+6. GCS preflight 的 operator 提示已同步改成当前默认顺序，不再继续打印旧的“先起导航再起控制”。
+7. 新增权威基线：
+   - `docs/architecture/teleop_primary_operator_lane.md`
+
+### 本轮验证
+
+已执行：
+
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor`
+- `python3 -m py_compile tools/supervisor/device_profiles.py tools/supervisor/phase0_supervisor.py tools/supervisor/tests/test_phase0_supervisor.py`
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m unittest tests.test_telemetry_viewmodels tests.test_gui_overview_presenter`
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && QT_QPA_PLATFORM=offscreen bash scripts/run_gui.sh --no-auto-connect --quit-after-ms 200`
+- `python3 tools/supervisor/phase0_supervisor.py preflight --profile control_only --startup-profile auto --run-root /tmp/phase0_supervisor_teleop_primary_smoke`
+- `python3 tools/supervisor/phase0_supervisor.py start --profile control_only --startup-profile auto --detach --run-root /tmp/phase0_supervisor_teleop_primary_smoke --start-settle-s 0.2 --poll-interval-s 0.2 --stop-timeout-s 5.0`
+- `python3 tools/supervisor/phase0_supervisor.py status --run-root /tmp/phase0_supervisor_teleop_primary_smoke --json`
+- `python3 tools/supervisor/phase0_supervisor.py stop --run-root /tmp/phase0_supervisor_teleop_primary_smoke --timeout-s 5.0`
+- `python3 tools/supervisor/phase0_supervisor.py bundle --run-root /tmp/phase0_supervisor_teleop_primary_smoke --json`
+
+### 当前结论
+
+1. 当前已经具备一个“没有完整导航也能稳定工作的遥控与调试平台”基础版本。
+2. `IMU-only` 当前只能写成 `attitude_feedback`，不能写成完整导航。
+3. `DVL` 当前是可选增强，不是默认硬依赖。
+4. 下一步若设备仍未就绪，应继续优先收口：
+   - operator wording
+   - bundle 摘要口径
+   - Linux delivery / config baseline
+5. 下一步若设备就绪，再恢复：
+   - 静态身份快照补采
+   - `imu_only`
+   - `imu_dvl`
+
+## 2026-03-27 追加进展：`control_only` 最小可运行路径与导航可选收口
+
+本轮由于真实设备暂未就绪，先不再把导航侧作为默认启动硬依赖，而是把系统收口成“控制侧可独立运行、导航侧可选”的最小产品底座。
+
+### 已落地
+
+1. `phase0_supervisor.py` 已新增并固定 `control_only` 为默认 profile。
+2. `control_only` 当前只启动：
+   - `pwm_control_program`
+   - `gcs_server`
+3. `device-scan` / `startup_profile_gate` 现在会区分：
+   - `control_only`：导航缺失只影响 readiness 解释，不阻塞 start
+   - `bench`：仍要求 `imu_only` / `imu_dvl` 这类 nav-ready profile
+4. `startup-profiles --json` 现在会直接暴露：
+   - `navigation_requirement`
+   - `runtime_level_hint`
+5. 新增权威基线：
+   - `docs/architecture/minimum_viable_runtime_profiles.md`
+6. runbook 已明确：
+   - 当前默认推荐运行等级是 `control_only`
+   - 没有导航时如何执行 `preflight -> start -> status -> stop -> bundle`
+   - 没有导航时可以做什么、不能做什么
+
+### 本轮验证
+
+已执行：
+
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor`
+- `python3 tools/supervisor/phase0_supervisor.py preflight --profile control_only --run-root /tmp/phase0_supervisor_control_only_smoke`
+- `python3 tools/supervisor/phase0_supervisor.py start --profile control_only --detach --run-root /tmp/phase0_supervisor_control_only_smoke --start-settle-s 0.2 --poll-interval-s 0.2 --stop-timeout-s 5.0`
+- `python3 tools/supervisor/phase0_supervisor.py status --run-root /tmp/phase0_supervisor_control_only_smoke --json`
+- `python3 tools/supervisor/phase0_supervisor.py stop --run-root /tmp/phase0_supervisor_control_only_smoke --timeout-s 5.0`
+- `python3 tools/supervisor/phase0_supervisor.py bundle --run-root /tmp/phase0_supervisor_control_only_smoke --json`
+
+### 当前结论
+
+1. 当前默认 operator lane 已经从 `bench` 收口到 `control_only`。
+2. 没有导航设备时，系统仍可完成：
+   - `preflight`
+   - `start`
+   - `status`
+   - `stop`
+   - `bundle`
+3. `AUTO` 与所有 nav-dependent 自动闭环模式仍必须保持禁用或拒绝。
+4. 导航重新恢复为默认强依赖的前提仍然是：
+   - 静态身份样本补齐
+   - `imu_only` 真实 bench 完成
+   - `imu_dvl` 真实 bench 完成
+
+### 下一步最建议做的事
+
+1. 如果设备仍未就绪，继续围绕 `control_only` 做 operator lane、bundle、GCS wording、delivery baseline 收口。
+2. 如果设备就绪，再按顺序恢复：
+   - 静态身份快照补采
+   - `imu_only`
+   - `imu_dvl`
+3. USBL、复杂 profile、导航融合大改、ROS2 authority 化继续后置。
+
+## 2026-03-27 追加进展：真实设备规则成熟度与真实 bench 前准备
+
+本轮继续只推进外围模块，不触碰核心 C++ authority 主链。
+
+### 已落地
+
+1. 设备识别规则现在已经把字段级静态成熟度写进规则文件：
+   - `/dev/serial/by-id`
+   - `vendor_id`
+   - `product_id`
+   - `serial`
+   - `manufacturer`
+   - `product`
+2. `device-scan --json` 现在会直接输出：
+   - `rule_catalog`
+   - `rule_maturity_summary`
+   - `static_sample_gap_summary`
+3. `preflight --profile bench --startup-profile auto` 现在会直接输出：
+   - `device_rule_maturity`
+   - `device_static_sample_gaps`
+4. 当前规则成熟度已经明确：
+   - IMU：静态 `candidate_only`，动态 `partial`
+   - DVL：静态 `candidate_only`，动态 `sample_backed`
+   - Volt32：静态 `candidate_only`，动态 `partial`
+5. 已把 `imu_only` / `imu_dvl` 的 bench 前检查项、推荐顺序和 bundle 闭环写进 runbook。
+
+### 本轮验证
+
+已执行：
+
+- `python3 -m py_compile tools/supervisor/device_identification.py tools/supervisor/device_profiles.py tools/supervisor/phase0_supervisor.py tools/supervisor/tests/test_device_identification.py tools/supervisor/tests/test_phase0_supervisor.py`
+- `python3 -m unittest tools.supervisor.tests.test_device_identification tools.supervisor.tests.test_phase0_supervisor`
+- `python3 tools/supervisor/phase0_supervisor.py device-scan --sample-policy off --json`
+- `python3 tools/supervisor/phase0_supervisor.py preflight --profile bench --startup-profile auto --run-root /tmp/phase0_supervisor_device_rule_prep`
+
+### 当前未完成
+
+1. 真实 `/dev/serial/by-id` / sysfs 静态快照补采。
+2. `imu_only` 的真实 bench `start -> status -> stop -> bundle`。
+3. `imu_dvl` 的真实 bench `start -> status -> stop -> bundle`。
+4. Volt32 live `CHn:` 原始行样本补采。
+5. USBL 真实样本与更复杂 profile。
+
+### 下一步最建议做的事
+
+1. 先补静态身份快照。
+2. 再按顺序做：
+   - `imu_only`
+   - `imu_dvl`
+3. 继续保持 `--pwm-dummy`，不放宽 authority 边界。
+4. USBL 和更复杂 profile 继续延后。
+
+## 2026-03-27 追加进展：面向商业化落地的项目审查
+
+本轮不继续做功能扩展，而是先基于当前真实代码与文档，做一次面向商业化落地的成熟度审查。
+
+### 当前阶段判断
+
+当前项目已经具备：
+
+1. `bench-safe` 集成平台基础
+2. supervisor / bundle / runbook 的外围运维骨架
+3. TUI 主路径与 GUI 首页 preview
+4. startup profile / device gate / replay / logging 的最小产品化基础
+
+但当前还不能宣称“已可稳定商业化交付”。主要差距在：
+
+1. 真实 `imu_only` / `imu_dvl` bench 闭环未完成
+2. 设备静态身份样本仍不足
+3. `comm_events.csv` 和命令链可观察性仍缺
+4. 交付级安装 / 配置 / Windows 路径仍未冻结
+5. authoritative 文档与部分启动提示口径仍有小范围漂移
+
+### 本轮新增结论
+
+1. 下一轮最值得优先做的是：
+   - 真实设备闭环
+   - operator path 收口
+   - delivery / config baseline
+2. 如果只从非导航侧先做商业化收口，最合适的切口是：
+   - supervisor + GCS + runbook + bundle 的单一路径固化
+3. USBL、复杂 profile、导航融合大改、ROS2 authority 化都应继续后置。
+4. 若后续进入核心链路增强，应坚持：
+   - 一次只动一个核心模块
+   - 优先补日志 / 状态 / 错误原因
+   - 每次都做最小 build / test / smoke
+
+### 本轮文档更新
+
+- 新增：`docs/architecture/commercialization_review.md`
+- 更新：
+  - `docs/documentation_index.md`
+  - `docs/handoff/CODEX_HANDOFF.md`
+  - `docs/handoff/CODEX_NEXT_ACTIONS.md`
+  - `docs/handoff/CODEX_PROGRESS_LOG.md`
+
+## 历史完成项（截至 2026-03-25）
 
 ### 1. Phase 0 supervisor 的 preflight 已补强
 
@@ -96,7 +429,7 @@
 3. `nav_viewd`
 4. `uwnav_navd`
 
-## 本轮验证方式
+## 历史验证方式（截至 2026-03-25）
 
 已执行：
 
@@ -231,3 +564,197 @@
 - supervisor manifest 与 incident bundle 自动整合
 - `gcs_server` 的统一 `comm_events.csv`
 - `pwm_control_program` 其余 controller / allocator / PWM 边界事件
+
+
+## 2026-03-26 追加进展：核心 C++ 主链高风险执行原则与本地/实地启动 guide
+
+本轮只做 docs/runbook 收口，不触碰 authority C++ 逻辑。
+
+### 已落地
+
+1. 新增 `docs/runbook/local_debug_and_field_startup_guide.md`，统一说明：
+   - mock / preflight / bench safe smoke
+   - supervisor 运行文件与 child logs 查看顺序
+   - 无设备时的最小验证路径
+   - 板上设备就位前检查项
+   - 串口 / by-id 确认方式
+   - 必须保持 `--pwm-dummy` 的场景
+   - 日志导出与 incident bundle 最小步骤
+2. `CODEX_HANDOFF.md` 已同步新增“核心 C++ 主链高风险区域”约束。
+3. `CODEX_NEXT_ACTIONS.md` 已同步新增：
+   - 外围模块 / 核心主链边界
+   - 核心主链一次只改一个小点
+   - 每次都要做最小回归
+   - 后续涉及核心主链时的固定收口要求
+
+### 本轮验证
+
+已完成：
+
+- 复核 `supervisor_phase0_operator_guide.md`
+- 复核 `usb_reconnect_bench_plan.md`
+- 复核 `bringup_runbook.md`
+- 复核 `log_replay_guide.md`
+- 复核 `incident_timeline_usage.md`
+- docs-only 交叉引用与命令路径人工检查
+
+当前未执行：
+
+- 新的核心 C++ 改动
+- 真实 bench / 实地 smoke
+- incident bundle 自动整合
+
+
+## 2026-03-26 追加进展：外围排障闭环 Phase 1 incident bundle
+
+本轮只推进外围模块商业化收口，不触碰核心 C++ 主链 authority 逻辑。
+
+### 已落地
+
+1. 新增 `tools/supervisor/incident_bundle.py`，把 supervisor run files、child logs、低频事件入口和现有高频日志入口导出到固定 bundle 目录。
+2. `phase0_supervisor.py` 新增 `bundle` 子命令，作为统一导出入口。
+3. 默认导出目录固定为 `<run_dir>/bundle/<timestamp>/`，并生成：
+   - `bundle_summary.json`
+   - `bundle_summary.txt`
+   - `supervisor/`
+   - `child_logs/`
+   - `events/`
+   - `nav/`
+   - `control/`
+   - `telemetry/`
+4. required / optional / incomplete 规则已固定：
+   - required：supervisor 自己的 4 个 run files
+   - optional：child logs、结构化低频事件、高频 `bin/csv`
+   - 缺失时 bundle 仍导出，但会明确标成 incomplete
+5. 新增 `docs/runbook/incident_bundle_guide.md`，并更新 `local_debug_and_field_startup_guide.md`，把 bundle 导出、查看顺序和问题反馈路径写清楚。
+
+### 本轮验证
+
+已执行：
+
+- `python3 -m py_compile tools/supervisor/phase0_supervisor.py tools/supervisor/incident_bundle.py tools/supervisor/tests/test_phase0_supervisor.py`
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor`
+- 一次真实 `mock start -> stop -> bundle --json`
+
+已确认：
+
+- bundle 默认输出到 `<run_dir>/bundle/<timestamp>/`
+- required 缺失时 `required_ok=false`
+- optional 缺失时 `bundle_status=incomplete`
+- `bundle_summary` 会明确列出缺失项和 `merge_robot_timeline` readiness
+
+### 当前未执行
+
+- 真实 `bench` / 实机环境的 bundle 导出演练
+- 一键压缩归档或上传
+- supervisor 内直接代跑 `merge_robot_timeline.py`
+
+
+## 2026-03-26 追加进展：真实 bench bundle 演练与最小归档 helper
+
+本轮仍然只推进外围排障闭环，不触碰核心 C++ authority 逻辑。
+
+### 已落地
+
+1. 在真实主机执行了一次 `bench` preflight / start / bundle 演练，拿到了真实 failure-path run dir。
+2. 已确认真实 `run_dir` 的 bundle 导出可用：
+   - `required_ok=true`
+   - `bundle_status=incomplete`
+   - `run_stage=preflight_failed_before_spawn`
+3. 已确认零字节 `child_logs` 会进入 bundle，`events/nav/control/telemetry` 缺失属于该样本的预期结果。
+4. 新增 `tools/supervisor/bundle_archive.py`，可把现有 bundle 最小打成同级 `.tar.gz`。
+5. runbook 已同步补充：preflight-failed 样本的判读方式，以及本地归档 helper 的使用方式。
+
+### 本轮验证
+
+已执行：
+
+- `python3 -m py_compile tools/supervisor/tests/test_phase0_supervisor.py tools/supervisor/bundle_archive.py tools/supervisor/tests/test_bundle_archive.py`
+- `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor tools.supervisor.tests.test_bundle_archive`
+- `python3 tools/supervisor/phase0_supervisor.py bundle --run-dir /tmp/phase0_supervisor_bench_smoke/2026-03-26/20260326_201943_37835 --json`
+- `python3 tools/supervisor/bundle_archive.py --bundle-dir /tmp/phase0_supervisor_bench_smoke/2026-03-26/20260326_201943_37835/bundle/20260326_202046 --json`
+
+### 当前未完成
+
+- 设备就绪条件下真正进入 `child_process_started` 的 `bench safe smoke`
+- 基于真实 child-process 样本再次复核 `events/` 与高频日志收集
+- 上传或问题单集成
+
+
+## 2026-03-26 追加进展：设备识别辅助工具与分级启动 profile
+
+本轮继续只做外围增强，不碰核心 C++ authority 主链。
+
+### 已落地
+
+1. 新增设备识别辅助工具：
+   - `tools/supervisor/device_identification.py`
+   - `tools/supervisor/device_identification_rules.json`
+2. 新增分级启动 profile 目录：
+   - `tools/supervisor/device_profiles.py`
+3. `phase0_supervisor.py` 新增：
+   - `device-scan`
+   - `startup-profiles`
+   - `--startup-profile auto|...`
+4. `bench preflight` 已能根据识别结果做 `startup_profile_gate`：
+   - `no_sensor` / `volt_only` / `reserved` 不允许继续进入当前 `bench` authority 链
+   - 歧义设备直接拒绝自动绑定
+5. run files 已同步写入当前 startup profile 与设备识别摘要。
+
+### 本轮验证
+
+已执行：
+
+1. `python3 -m py_compile`
+2. `python3 -m unittest tools.supervisor.tests.test_phase0_supervisor tools.supervisor.tests.test_bundle_archive tools.supervisor.tests.test_device_identification`
+3. `python3 tools/supervisor/phase0_supervisor.py startup-profiles --json`
+4. `python3 tools/supervisor/phase0_supervisor.py device-scan --sample-policy off --json`
+5. `python3 tools/supervisor/phase0_supervisor.py preflight --profile bench --startup-profile auto --run-root /tmp/phase0_supervisor_device_profile_preflight`
+
+### 当前限制
+
+1. 动态指纹还没有经过真实 IMU / DVL / Volt32 长时间样本校准。
+2. `imu_dvl_usbl` / `full_stack` 仍是预留设计。
+3. 当前只做 gate / 记录，不按 profile 改写 authority 进程图。
+
+## 2026-03-26 追加进展：设备识别规则已按真实样本收紧
+
+本轮只做 `UnderwaterRobotSystem` 的外围工具和文档收口，不触碰核心 C++ authority 主链。
+
+### 已落地
+
+1. 已读取并分析真实 IMU / Volt32 / DVL 样本。
+2. 已确认：
+   - DVL `SA/TS/BI/BS/BE/BD` 是稳定强动态 token
+   - Volt32 `CH0..CH15` 导出 CSV 与 `V/A` 后缀可作为样本支撑
+   - IMU 当前 runtime 主链是 `WIT Modbus-RTU` 轮询，因此被动动态识别不能当主判据
+3. `device_identification.py` 已改成更保守的可信绑定策略：
+   - `score < 0.60` 回退 `unknown`
+   - 高分冲突显式 `ambiguous`
+   - 输出 `resolution.reason`、`resolution.top_candidate`、`rule_support`
+4. `device_identification_rules.json` 已明确写出：
+   - 哪些规则已经是样本支撑
+   - 哪些仍是 partial
+   - 哪些仍只是 candidate-only
+5. `test_device_identification.py` 已改成样本驱动验证，并新增真实样本摘录夹具。
+
+### 本轮验证
+
+已执行：
+
+- `python3 -m py_compile tools/supervisor/device_identification.py tools/supervisor/device_profiles.py tools/supervisor/phase0_supervisor.py tools/supervisor/tests/test_device_identification.py`
+- `python3 -m unittest tools.supervisor.tests.test_device_identification`
+
+当前仍未执行：
+
+- 真实 bench 下的 `imu_only` 推荐稳定性验证
+- 真实 bench 下的 `imu_dvl` 推荐稳定性验证
+- 真实 `/dev/serial/by-id` / sysfs 静态快照校准
+- IMU live serial 主动探测验证
+
+### 下一步最建议做的事
+
+1. 在真实 bench 上补采静态身份快照，用于继续收紧 IMU / Volt32 / DVL 白名单。
+2. 在真实 bench 条件下分别验证 `imu_only` 与 `imu_dvl` 的 profile 推荐和 gate。
+3. 若继续推进，只在 supervisor / preflight / runbook 侧做轻量收口，不提前改核心 authority 主链。
+

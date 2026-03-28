@@ -57,6 +57,9 @@
 - `docs/project_memory.md`
 - `docs/architecture/system_main_dataflow.md`
 - `docs/architecture/upgrade_strategy.md`
+- `docs/architecture/commercialization_review.md`
+- `docs/architecture/minimum_viable_runtime_profiles.md`
+- `docs/architecture/teleop_primary_operator_lane.md`
 - `docs/documentation_index.md`
 
 ### 3.2 接口契约基线
@@ -70,10 +73,19 @@
 ### 3.3 运行与验证基线
 
 - `docs/runbook/gcs_ui_operator_guide.md`
-- `docs/runbook/supervisor_phase0_operator_guide.md`
+- `docs/runbook/local_debug_and_field_startup_guide.md`
+- `docs/runbook/local_teleop_smoke_checklist.md`
+  - 本机 `control_only` helper、最短 teleop/PWM 命令卡、14550 端口占用排查与 PWM 日志查看入口
+- `docs/runbook/field_validation_checklist.md`
+- `docs/runbook/incident_bundle_guide.md`
 - `docs/runbook/log_replay_guide.md`
 - `docs/runbook/usb_reconnect_bench_plan.md`
 - `docs/runbook/replay_injection_guide.md`
+
+补充说明：
+
+- 当前 Linux bring-up / teleop primary lane 默认基线，统一以 `docs/architecture/teleop_primary_operator_lane.md` + `docs/runbook/local_debug_and_field_startup_guide.md` 为准。
+- 当前 bundle completeness / triage 语义，统一以 `docs/runbook/incident_bundle_guide.md` + `docs/runbook/local_debug_and_field_startup_guide.md` 为准。
 
 ### 3.4 Codex 交接基线
 
