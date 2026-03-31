@@ -9,3 +9,8 @@ offline_nav/out/
 offline_nav/out/
 # generated supervisor run outputs
 reports/supervisor_runs/
+
+# python bytecode / caches (must not be versioned)
+__pycache__/
+*.pyc
+*.pyo
