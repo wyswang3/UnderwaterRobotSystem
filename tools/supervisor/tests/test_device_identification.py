@@ -31,6 +31,13 @@ def build_real_valued_volt_line_sample() -> bytes:
     return ('\n'.join(lines) + '\n').encode('utf-8')
 
 
+def build_imu_modbus_reply(payload: bytes | None = None) -> bytes:
+    data = payload if payload is not None else bytes(range(1, ident.IMU_MODBUS_REPLY_BYTE_COUNT + 1))
+    frame = bytes([ident.IMU_MODBUS_SLAVE_ADDR, ident.IMU_MODBUS_FUNCTION_READ, ident.IMU_MODBUS_REPLY_BYTE_COUNT]) + data
+    crc = ident.modbus_crc16(frame)
+    return frame + bytes([crc & 0xFF, (crc >> 8) & 0xFF])
+
+
 class DeviceIdentificationTests(unittest.TestCase):
     def test_scan_prefers_by_id_and_recommends_imu_only(self) -> None:
         with tempfile.TemporaryDirectory(prefix='device_ident_') as td:
@@ -90,6 +97,13 @@ class DeviceIdentificationTests(unittest.TestCase):
         self.assertEqual('sample_backed', matches[0].support_level)
         self.assertIn('Acc/As/H/Ang axes all present', ' '.join(matches[0].evidence))
 
+    def test_synthetic_imu_modbus_reply_classifies_as_imu(self) -> None:
+        matches = ident.classify_sample_bytes(build_imu_modbus_reply())
+        self.assertTrue(matches)
+        self.assertEqual('imu', matches[0].device_type)
+        self.assertGreaterEqual(matches[0].score, 0.85)
+        self.assertIn('active IMU probe matched Modbus reply', ' '.join(matches[0].evidence))
+
     def test_real_volt32_export_sample_classifies_as_volt32(self) -> None:
         matches = ident.classify_sample_bytes(read_fixture_bytes('volt32_export_excerpt.csv'))
         self.assertTrue(matches)
@@ -144,6 +158,55 @@ class DeviceIdentificationTests(unittest.TestCase):
         )
         resolved = device_profiles.recommend_startup_profile(counts)
         self.assertEqual('imu_dvl', resolved['profile'])
+
+    def test_identify_device_uses_imu_active_probe_on_quiet_usb_port(self) -> None:
+        identity = {
+            'path': '/dev/ttyUSB7',
+            'canonical_path': '/dev/ttyUSB7',
+            'tty_name': 'ttyUSB7',
+            'by_id_name': '',
+            'vendor_id': '',
+            'product_id': '',
+            'serial': '',
+            'manufacturer': '',
+            'product': '',
+        }
+        with mock.patch.object(ident, 'choose_baud_candidates', return_value=[230400]), \
+             mock.patch.object(ident, 'read_serial_sample', return_value=(b'', None)), \
+             mock.patch.object(ident, 'read_serial_sample_with_probe', return_value=(build_imu_modbus_reply(), None)):
+            device = ident.identify_device(
+                identity,
+                ident.load_rules(),
+                sample_policy='always',
+            )
+        self.assertEqual('imu', device['device_type'])
+        self.assertEqual('passive+imu_active', device['dynamic_probe']['attempts'][0]['probe_mode'])
+        self.assertGreater(device['dynamic_probe']['attempts'][0]['imu_probe_bytes_read'], 0)
+
+    def test_unparseable_imu_probe_keeps_raw_preview(self) -> None:
+        identity = {
+            'path': '/dev/ttyUSB8',
+            'canonical_path': '/dev/ttyUSB8',
+            'tty_name': 'ttyUSB8',
+            'by_id_name': '',
+            'vendor_id': '',
+            'product_id': '',
+            'serial': '',
+            'manufacturer': '',
+            'product': '',
+        }
+        raw_reply = b'\x50\x03\x1e\x01\x02garbled-modbus-reply'
+        with mock.patch.object(ident, 'choose_baud_candidates', return_value=[230400]), \
+             mock.patch.object(ident, 'read_serial_sample', return_value=(b'', None)), \
+             mock.patch.object(ident, 'read_serial_sample_with_probe', return_value=(raw_reply, None)):
+            device = ident.identify_device(
+                identity,
+                ident.load_rules(),
+                sample_policy='always',
+            )
+        self.assertEqual('unknown', device['device_type'])
+        self.assertTrue(device['dynamic_probe']['attempts'][0]['raw_preview_hex'])
+        self.assertIn('raw_preview_hex', ' '.join(device['risk_hints']))
 
     def test_profile_resolution_marks_reserved_profile(self) -> None:
         counts = device_profiles.count_device_types(['imu', 'dvl', 'usbl'])

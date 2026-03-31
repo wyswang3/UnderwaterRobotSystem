@@ -74,6 +74,8 @@
 
 - `docs/runbook/gcs_ui_operator_guide.md`
 - `docs/runbook/local_debug_and_field_startup_guide.md`
+- `docs/runbook/operator_manual.md`
+  - 车端控制侧 / 上位机最短启动命令卡，以及 IMU / Volt32 现场识别与解析排查口径
 - `docs/runbook/local_teleop_smoke_checklist.md`
   - 本机 `control_only` helper、最短 teleop/PWM 命令卡、14550 端口占用排查与 PWM 日志查看入口
 - `docs/runbook/field_validation_checklist.md`
