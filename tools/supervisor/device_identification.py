@@ -18,6 +18,7 @@ DEFAULT_SAMPLE_POLICY = 'auto'
 DEFAULT_SAMPLE_WINDOW_S = 0.35
 DEFAULT_MAX_SAMPLE_BYTES = 2048
 DEFAULT_DYNAMIC_BAUDS = (230400, 115200)
+DEFAULT_IMU_PROBE_DELAY_S = 0.03
 MIN_RESOLVE_SCORE = 0.60
 AMBIGUOUS_SCORE_DELTA = 0.12
 STATIC_IDENTITY_FIELD_KEYS = (
@@ -73,6 +74,14 @@ IMU_ARCHIVE_HEADER_MARKERS = (
     'magy',
     'magz',
 )
+IMU_MODBUS_SLAVE_ADDR = 0x50
+IMU_MODBUS_FUNCTION_READ = 0x03
+IMU_MODBUS_START_REG = 0x34
+IMU_MODBUS_REGISTER_COUNT = 15
+IMU_MODBUS_REPLY_BYTE_COUNT = IMU_MODBUS_REGISTER_COUNT * 2
+IMU_MODBUS_REPLY_FRAME_LEN = 3 + IMU_MODBUS_REPLY_BYTE_COUNT + 2
+HEX_PREVIEW_CHUNK_BYTES = 32
+HEX_PREVIEW_MAX_CHUNKS = 2
 
 
 @dataclass(frozen=True)
@@ -144,6 +153,85 @@ def normalize_notes(values: Iterable[str] | None) -> tuple[str, ...]:
         if text:
             notes.append(text)
     return tuple(notes)
+
+
+def modbus_crc16(payload: bytes) -> int:
+    crc = 0xFFFF
+    for byte in payload:
+        crc ^= byte
+        for _ in range(8):
+            if crc & 0x0001:
+                crc = (crc >> 1) ^ 0xA001
+            else:
+                crc >>= 1
+    return crc & 0xFFFF
+
+
+def build_imu_probe_request(
+    *,
+    slave_addr: int = IMU_MODBUS_SLAVE_ADDR,
+    start_reg: int = IMU_MODBUS_START_REG,
+    register_count: int = IMU_MODBUS_REGISTER_COUNT,
+) -> bytes:
+    payload = bytes(
+        [
+            slave_addr & 0xFF,
+            IMU_MODBUS_FUNCTION_READ,
+            (start_reg >> 8) & 0xFF,
+            start_reg & 0xFF,
+            (register_count >> 8) & 0xFF,
+            register_count & 0xFF,
+        ]
+    )
+    crc = modbus_crc16(payload)
+    return payload + bytes([crc & 0xFF, (crc >> 8) & 0xFF])
+
+
+def format_hex_preview(sample: bytes, *, chunk_bytes: int = HEX_PREVIEW_CHUNK_BYTES) -> list[str]:
+    lines: list[str] = []
+    if not sample:
+        return lines
+    for idx in range(HEX_PREVIEW_MAX_CHUNKS):
+        offset = idx * chunk_bytes
+        chunk = sample[offset : offset + chunk_bytes]
+        if not chunk:
+            break
+        lines.append(' '.join(f'{byte:02x}' for byte in chunk))
+    return lines
+
+
+def extract_imu_modbus_reply_frames(sample: bytes) -> list[bytes]:
+    frames: list[bytes] = []
+    if len(sample) < IMU_MODBUS_REPLY_FRAME_LEN:
+        return frames
+
+    limit = len(sample) - IMU_MODBUS_REPLY_FRAME_LEN + 1
+    for idx in range(limit):
+        if sample[idx] != IMU_MODBUS_SLAVE_ADDR:
+            continue
+        if sample[idx + 1] != IMU_MODBUS_FUNCTION_READ:
+            continue
+        if sample[idx + 2] != IMU_MODBUS_REPLY_BYTE_COUNT:
+            continue
+
+        frame = sample[idx : idx + IMU_MODBUS_REPLY_FRAME_LEN]
+        crc_expected = frame[-2] | (frame[-1] << 8)
+        crc_actual = modbus_crc16(frame[:-2])
+        if crc_actual != crc_expected:
+            continue
+
+        frames.append(frame)
+        if len(frames) >= HEX_PREVIEW_MAX_CHUNKS:
+            break
+
+    return frames
+
+
+def format_imu_reply_preview(sample: bytes) -> list[str]:
+    frames = extract_imu_modbus_reply_frames(sample)
+    if frames:
+        return [' '.join(f'{byte:02x}' for byte in frame) for frame in frames]
+    return format_hex_preview(sample)
 
 
 def resolve_tty_name(path: pathlib.Path) -> str:
@@ -589,23 +677,38 @@ def _classify_imu_sample(sample: bytes, text: str) -> Optional[MatchScore]:
     support_level = 'candidate_only'
     detector = ''
 
+    modbus_frames = extract_imu_modbus_reply_frames(sample)
+    if modbus_frames:
+        score = 0.86
+        support_level = 'partial'
+        detector = 'imu_modbus_active_probe'
+        evidence.append(
+            'active IMU probe matched Modbus reply '
+            f'addr=0x{IMU_MODBUS_SLAVE_ADDR:02x} func=0x{IMU_MODBUS_FUNCTION_READ:02x} '
+            f'count={IMU_MODBUS_REGISTER_COUNT} crc_ok x{len(modbus_frames)}'
+        )
+
     # 真实样本证明导出 IMU CSV 的列集合很稳定，但这类证据主要用于离线样本校准。
     if _header_contains_all(header, IMU_EXPORT_CORE_COLUMNS):
-        score = 0.84
-        support_level = 'sample_backed'
-        detector = 'imu_export_csv'
+        export_score = 0.84
+        if export_score >= score:
+            support_level = 'sample_backed'
+            detector = 'imu_export_csv'
+        score = max(score, export_score)
         evidence.append('sample-backed IMU export columns: Acc/As/H/Ang axes all present')
         if _header_contains_all(header, IMU_EXPORT_TIME_COLUMNS):
-            score += 0.03
+            score = max(score, min(0.89, export_score + 0.03))
             evidence.append('MonoNS/EstNS timebase columns present')
         if 'TemperatureC'.lower() in _header_field_set(header):
             evidence.append('TemperatureC column present (current samples may be blank)')
 
     header_lower = _header_field_set(header)
-    if not score and all(marker in header_lower for marker in IMU_ARCHIVE_HEADER_MARKERS):
-        score = 0.78
-        support_level = 'sample_backed'
-        detector = 'imu_archive_text'
+    if all(marker in header_lower for marker in IMU_ARCHIVE_HEADER_MARKERS):
+        archive_score = 0.78
+        if archive_score >= score:
+            support_level = 'sample_backed'
+            detector = 'imu_archive_text'
+        score = max(score, archive_score)
         evidence.append('sample-backed archived WIT text header contains accel/gyro/angle/mag groups')
 
     # 兼容保留旧 WIT UART 同步帧识别，但当前 runtime 主链是 Modbus 轮询，不能把它当主证据。
@@ -702,6 +805,34 @@ def should_probe_dynamically(identity: dict, static_matches: Sequence[MatchScore
     return not str(identity.get('path') or '').startswith('/dev/serial/by-id/')
 
 
+def should_try_imu_active_probe(
+    identity: dict,
+    static_matches: Sequence[MatchScore],
+    dynamic_matches: Sequence[MatchScore],
+    baud: int,
+) -> bool:
+    if baud != 230400:
+        return False
+
+    tty_name = str(identity.get('tty_name') or '')
+    path = str(identity.get('path') or '')
+    if not (tty_name.startswith('ttyUSB') or '/ttyUSB' in path):
+        return False
+
+    top_dynamic = dynamic_matches[0] if dynamic_matches else None
+    if top_dynamic is not None:
+        if top_dynamic.device_type == 'imu' and top_dynamic.score >= 0.80:
+            return False
+        if top_dynamic.device_type in ('volt32', 'dvl') and top_dynamic.score >= 0.75:
+            return False
+
+    top_static = static_matches[0] if static_matches else None
+    if top_static is not None and top_static.device_type == 'imu':
+        return True
+
+    return top_dynamic is None or top_dynamic.score < 0.75
+
+
 def read_serial_sample(path: str, baud: int, sample_window_s: float, max_bytes: int) -> tuple[Optional[bytes], Optional[str]]:
     try:
         import serial  # type: ignore
@@ -717,6 +848,52 @@ def read_serial_sample(path: str, baud: int, sample_window_s: float, max_bytes: 
     collected = 0
     deadline = time.time() + sample_window_s
     try:
+        while time.time() < deadline and collected < max_bytes:
+            chunk = handle.read(min(256, max_bytes - collected))
+            if not chunk:
+                time.sleep(0.02)
+                continue
+            chunks.append(chunk)
+            collected += len(chunk)
+    finally:  # pragma: no branch - best effort cleanup
+        try:
+            handle.close()
+        except Exception:
+            pass
+    return b''.join(chunks), None
+
+
+def read_serial_sample_with_probe(
+    path: str,
+    baud: int,
+    sample_window_s: float,
+    max_bytes: int,
+    *,
+    probe_bytes: bytes,
+    probe_delay_s: float = DEFAULT_IMU_PROBE_DELAY_S,
+) -> tuple[Optional[bytes], Optional[str]]:
+    try:
+        import serial  # type: ignore
+    except ImportError as exc:
+        return None, f'pyserial unavailable ({exc})'
+
+    try:
+        handle = serial.Serial(path, baudrate=baud, timeout=0.10)
+    except Exception as exc:  # pragma: no cover - hardware dependent
+        return None, str(exc)
+
+    chunks: list[bytes] = []
+    collected = 0
+    deadline = time.time() + sample_window_s
+    try:
+        try:
+            handle.reset_input_buffer()
+        except Exception:
+            pass
+        handle.write(probe_bytes)
+        handle.flush()
+        time.sleep(probe_delay_s)
+
         while time.time() < deadline and collected < max_bytes:
             chunk = handle.read(min(256, max_bytes - collected))
             if not chunk:
@@ -759,14 +936,48 @@ def probe_dynamic_matches(
 
         sample = sample or b''
         matches = classify_sample_bytes(sample)
-        attempts.append(
-            {
-                'baud': baud,
-                'status': 'ok',
-                'bytes_read': len(sample),
-                'detected_types': [item.device_type for item in matches],
-            }
-        )
+        probe_mode = 'passive'
+        imu_probe_bytes = b''
+        imu_probe_error = ''
+        imu_probe_request = b''
+
+        if should_try_imu_active_probe(identity, static_matches, matches, baud):
+            probe_mode = 'passive+imu_active'
+            imu_probe_request = build_imu_probe_request()
+            remaining_bytes = max_bytes if len(sample) >= max_bytes else max_bytes - len(sample)
+            remaining_bytes = max(1, remaining_bytes)
+            probe_sample, probe_error = read_serial_sample_with_probe(
+                str(identity['path']),
+                baud,
+                sample_window_s,
+                remaining_bytes,
+                probe_bytes=imu_probe_request,
+            )
+            if probe_error is not None:
+                imu_probe_error = str(probe_error)
+            else:
+                imu_probe_bytes = probe_sample or b''
+                if imu_probe_bytes:
+                    sample = (sample + imu_probe_bytes)[:max_bytes]
+                    matches = classify_sample_bytes(sample)
+
+        attempt: dict[str, object] = {
+            'baud': baud,
+            'status': 'ok',
+            'bytes_read': len(sample),
+            'detected_types': [item.device_type for item in matches],
+            'probe_mode': probe_mode,
+        }
+        if probe_mode != 'passive':
+            attempt['imu_probe_request_hex'] = ' '.join(f'{byte:02x}' for byte in imu_probe_request)
+            attempt['imu_probe_bytes_read'] = len(imu_probe_bytes)
+            if imu_probe_error:
+                attempt['imu_probe_error'] = imu_probe_error
+            if imu_probe_bytes:
+                attempt['imu_probe_reply_preview_hex'] = format_imu_reply_preview(imu_probe_bytes)
+        if sample and not matches:
+            attempt['raw_preview_hex'] = format_imu_reply_preview(sample)
+        attempts.append(attempt)
         if matches and (not best_dynamic or matches[0].score > best_dynamic[0].score):
             best_dynamic = matches
         if matches and matches[0].score >= 0.85:
@@ -883,6 +1094,8 @@ def identify_device(
         risk_hints.append('动态采样未拿到有效字节，当前判断主要依赖静态身份。')
     if top is not None and top.device_type == 'imu' and not dynamic_matches:
         risk_hints.append('当前 IMU runtime 使用 WIT Modbus 轮询；被动采样可能无字节，静态白名单不足时应保持 unknown。')
+    if any(item.get('raw_preview_hex') for item in dynamic_attempts):
+        risk_hints.append('已保留 1 到 2 段原始回传十六进制预览；若仍无法解析，请按 dynamic_probe.attempts[*].raw_preview_hex 调整解析函数。')
     if ambiguous:
         risk_hints.append('存在接近分数的候选类型，preflight 应拒绝自动绑定。')
     if resolution_reason == 'score_below_floor' and top is not None:

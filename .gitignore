@@ -1,11 +1,24 @@
 
-# generated data
-offline_nav/out/
-
 # generated offline_nav outputs
 offline_nav/out/
 
-# generated offline_nav outputs
-offline_nav/out/
 # generated supervisor run outputs
 reports/supervisor_runs/
+
+# local editor settings / temporary files
+.vscode/
+.idea/
+.cache/
+*.swp
+*.swo
+*~
+*.tmp
+
+# python bytecode / caches (must not be versioned)
+__pycache__/
+*.pyc
+*.pyo
+
+# local test / runtime scratch
+*.log
+*.bin

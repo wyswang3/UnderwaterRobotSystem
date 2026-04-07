@@ -218,6 +218,32 @@
    - USBL / `full_stack`
    - ROS2 authority 化
 
+## 0.70 2026-03-31 新增优先事项：实机验证 IMU Modbus CRC 线序收口是否解决“C++ 读不出”问题
+
+背景：
+
+- 已在 `Underwater-robot-navigation/nav_core` 修复 WIT Modbus RTU CRC 线序漂移，并增强串口诊断输出（单帧 dump）。
+- 需要在真实 IMU + Volt32（岸上，无 DVL）场景完成一次最小闭环验证。
+
+验收标准（必须同时满足）：
+
+1. `uwnav_imu_modbus_probe` 在真实 IMU 口上输出 `kind=imu_modbus_reply`，并能看到 `rx_dump` 有效回包。
+2. `uwnav_navd` 启动后不再反复刷：
+   - `IMU opened but no parseable frame arrived ...`
+3. `nav_events.csv` 中不再持续出现 `imu device mismatch`；IMU 应进入 `ONLINE` 并持续有 `NAV t=...` 输出。
+
+建议步骤（岸上调试默认关闭 DVL）：
+
+1. 确认 `nav_daemon.yaml` 中 `dvl.enable=false`，IMU `port` 为空（走 auto probe），日志目录使用 `../data/nav`。
+2. 先跑：
+   - `./build/bin/uwnav_imu_modbus_probe --port /dev/ttyUSB1 --baud 230400 --addr 0x50 --attempts 3 --reply-timeout-ms 200 --output /tmp/imu_probe.bin`
+3. 再跑 `uwnav_navd`，观察 stderr 和 `../data/nav/<date>/nav/nav_events.csv`。
+
+禁止事项：
+
+- 不要为了这次验证去改 shared ABI 或引入 ROS2 authority。
+- 不要在未完成 IMU-only 收敛前同时改 ESKF 核心融合逻辑。
+
 额外要求：
 
 - `open_failed` / `permission_denied` 没有稳定 runtime 状态源之前，不要在 GUI 里伪造细粒度原因。

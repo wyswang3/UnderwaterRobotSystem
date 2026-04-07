@@ -15,6 +15,7 @@ POLL_INTERVAL_S="${POLL_INTERVAL_S:-0.2}"
 STOP_TIMEOUT_S="${STOP_TIMEOUT_S:-5.0}"
 ROV_IP="${ROV_IP:-127.0.0.1}"
 STATUS_DELAY_S="${STATUS_DELAY_S:-1.0}"
+REAL_PWM="${REAL_PWM:-0}"
 
 if [[ -x "${REPO_ROOT}/.venv/bin/python" ]]; then
   PYTHON_BIN="${REPO_ROOT}/.venv/bin/python"
@@ -31,6 +32,17 @@ run_cmd() {
   echo ""
   echo "+ $*"
   "$@"
+}
+
+print_pwm_mode_banner() {
+  echo ""
+  if [[ "${REAL_PWM}" == "1" ]]; then
+    echo "[INFO] PWM backend mode: STM32"
+    echo "[INFO] helper will pass --real-pwm; pwm_control_program will not append --pwm-dummy."
+  else
+    echo "[INFO] PWM backend mode: DUMMY"
+    echo "[INFO] helper default keeps --pwm-dummy; TUI commands can reach pwm_control_program, but no packets will be sent to STM32."
+  fi
 }
 
 print_usage() {
@@ -52,11 +64,17 @@ Environment overrides:
   STOP_TIMEOUT_S   default: 5.0
   ROV_IP           default: 127.0.0.1
   STATUS_DELAY_S   default: 1.0
+  REAL_PWM         default: 0 (set to 1 to enable real STM32 PWM output)
 EOF
 }
 
 run_prepare() {
   cd "${REPO_ROOT}"
+  local -a extra_args=()
+  print_pwm_mode_banner
+  if [[ "${REAL_PWM}" == "1" ]]; then
+    extra_args+=(--real-pwm)
+  fi
   # 这里只是把现有 teleop primary lane 的推荐顺序打包成一个 helper，不改默认语义。
   if [[ -f "${USB_SNAPSHOT}" ]]; then
     run_cmd "${PYTHON_BIN}" "${USB_SNAPSHOT}" --json
@@ -65,12 +83,16 @@ run_prepare() {
   fi
   run_cmd "${PYTHON_BIN}" "${SUPERVISOR}" device-scan --sample-policy off --json
   run_cmd "${PYTHON_BIN}" "${SUPERVISOR}" startup-profiles --json
-  run_cmd "${PYTHON_BIN}" "${SUPERVISOR}" preflight     --profile "${PROFILE}"     --startup-profile "${STARTUP_PROFILE}"     --run-root "${RUN_ROOT}"
+  run_cmd "${PYTHON_BIN}" "${SUPERVISOR}" preflight     --profile "${PROFILE}"     --startup-profile "${STARTUP_PROFILE}"     --run-root "${RUN_ROOT}"     "${extra_args[@]}"
 }
 
 run_up() {
   run_prepare
-  run_cmd "${PYTHON_BIN}" "${SUPERVISOR}" start     --profile "${PROFILE}"     --startup-profile "${STARTUP_PROFILE}"     --detach     --run-root "${RUN_ROOT}"     --start-settle-s "${START_SETTLE_S}"     --poll-interval-s "${POLL_INTERVAL_S}"     --stop-timeout-s "${STOP_TIMEOUT_S}"
+  local -a extra_args=()
+  if [[ "${REAL_PWM}" == "1" ]]; then
+    extra_args+=(--real-pwm)
+  fi
+  run_cmd "${PYTHON_BIN}" "${SUPERVISOR}" start     --profile "${PROFILE}"     --startup-profile "${STARTUP_PROFILE}"     --detach     --run-root "${RUN_ROOT}"     --start-settle-s "${START_SETTLE_S}"     --poll-interval-s "${POLL_INTERVAL_S}"     --stop-timeout-s "${STOP_TIMEOUT_S}"     "${extra_args[@]}"
   sleep "${STATUS_DELAY_S}"
   run_status
   cat <<EOF
@@ -88,6 +110,7 @@ EOF
 
 run_status() {
   cd "${REPO_ROOT}"
+  print_pwm_mode_banner
   run_cmd "${PYTHON_BIN}" "${SUPERVISOR}" status --run-root "${RUN_ROOT}"
   run_cmd "${PYTHON_BIN}" "${SUPERVISOR}" status --run-root "${RUN_ROOT}" --json
 }

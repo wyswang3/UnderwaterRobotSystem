@@ -221,6 +221,24 @@ profile 矩阵本身本轮不需要调整；真正变化的是：
 
 这里新增 `device_rule_maturity` 和 `device_static_sample_gaps` 的目的，不是为了放宽 gate，而是为了把“当前哪些规则已经可用、哪些规则仍缺真实样本”直接写进 bench 前检查输出，避免操作员只看到 `no_sensor` / `unknown` 却不知道下一步该补什么。
 
+### 5.1 IMU 主动探测与原始回传预览
+
+当前针对 `ttyUSB*` 安静串口，`device-scan` 已补充一层 IMU 主动探测，原则如下：
+
+1. 先做原有被动短采样。
+2. 如果没有拿到足够证据、且当前串口符合 IMU 候选条件，会额外在 `230400` 下发送一次 IMU 读寄存器请求：
+   - `slave_addr=0x50`
+   - `function=0x03`
+   - `start_reg=0x34`
+   - `count=15`
+3. 如果收到合法 Modbus 回包，则把它作为 IMU 的 `partial` 动态证据，而不是继续只靠 `nav_daemon.yaml` 的硬编码端口路径。
+4. 如果有回包但仍无法归类，`device-scan --json` 会在 `dynamic_probe.attempts[*]` 里保留：
+   - `imu_probe_reply_preview_hex`
+   - `raw_preview_hex`
+5. 这些十六进制预览只保留 1 到 2 段，目的不是替代完整抓包，而是为了现场快速调整解析函数。
+
+这一步仍然属于 supervisor / preflight 外围逻辑，不等于把设备识别直接塞进 `uwnav_navd` authority 主循环。
+
 ## 6. 当前实现状态与下一步
 
 ### 6.1 当前规则成熟度清单

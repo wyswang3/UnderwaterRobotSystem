@@ -95,7 +95,87 @@ nav_timing.bin + nav_state.bin + control CSV + telemetry timeline/events
   -> uwnav_nav_replay + replay_compare.py
 ```
 
-## 5. 当前最重要的文档
+## 5. 当前默认操作路径
+
+当前面向操作员的默认主路径已经固定为：
+
+```text
+device-check -> device-scan -> startup-profiles -> preflight -> start -> status -> teleop -> stop -> bundle
+```
+
+当前默认 supervisor profile：
+
+```text
+control_only
+```
+
+这表示：
+
+- 默认最小运行链只要求 `pwm_control_program + gcs_server`
+- 导航增强链路不是默认启动硬依赖
+- 当前先把“遥控 + 状态观察 + 日志导出”跑稳
+- IMU / DVL 属于增强观察条件，不是默认起步硬条件
+
+当前操作员界面的边界也已固定：
+
+- `TUI` 是当前成熟 teleop 主路径
+- `GUI` 是当前只读 status / motion observer
+- `GUI` 当前已经能观察机器人状态，但还不是完整导航工作站
+
+当前 GUI 对 `Motion Info` 只能按以下等级解释：
+
+- `Control Only`
+- `Attitude Feedback`
+- `Relative Nav`
+
+不要把它们误写成：
+
+- 完整绝对定位
+- 完整自动控制台
+- GUI authority 已升级
+
+## 6. 当前推荐的操作说明入口
+
+如果你是现场操作员，优先看：
+
+1. `/home/wys/orangepi/operator_manual.md`
+2. `docs/runbook/gcs_ui_operator_guide.md`
+3. `OrangePi_STM32_for_ROV/pwm_control_program/docs/操作说明.md`
+
+其中：
+
+- `/home/wys/orangepi/operator_manual.md`
+  - 是当前工作区根目录下的便捷操作手册
+  - 适合快速抄命令和理解 GUI / TUI 分工
+- `docs/runbook/gcs_ui_operator_guide.md`
+  - 是系统级版本化 runbook
+  - 更适合解释 GUI 六卡片和 capability wording
+- `OrangePi_STM32_for_ROV/pwm_control_program/docs/操作说明.md`
+  - 更偏手动控制和 PWM / 现场联调流程
+
+## 7. 当前导航主链的最新收口点
+
+`Underwater-robot-navigation/nav_core` 最近已完成几项关键收口：
+
+- IMU 串口识别从“硬编码路径优先”升级为“串口行为识别 + Modbus 主动探测”
+- C++ IMU 串口初始化已对齐 Python raw `8N1`
+- 修复 WIT Modbus RTU CRC 线序漂移（默认按标准 lo-hi 发送，并兼容历史 hi-lo 诊断）
+- IMU 串口排障输出支持单帧十六进制 dump，便于快速确认“回了什么原始字节”
+- `nav_daemon` 已继续拆成小模块，而不是把逻辑堆回主程序
+- `NavHealthMonitor` 已接入正常导航主链，不再只在实验编译开关下存在
+- 导航运行时现在能输出健康审查根因：
+  - `transport_timing`
+  - `sensor_input`
+  - `estimator_consistency`
+  - `estimator_numeric`
+
+需要注意：
+
+- 更细根因当前仍走 stderr / `nav_events.csv`
+- 本轮没有扩 shared `NavState` ABI
+- GUI 当前仍只消费既有权威状态语义，不直接显示这套审查器全部内部指标
+
+## 8. 当前最重要的文档
 
 当前权威基线优先看：
 
@@ -117,7 +197,7 @@ nav_timing.bin + nav_state.bin + control CSV + telemetry timeline/events
 - `docs/archive/archive_index.md`
 - `docs/archive/` 下的旧总览、旧测试、旧整改记录
 
-## 6. 当前不应把这个仓库理解成什么
+## 9. 当前不应把这个仓库理解成什么
 
 请不要把这个仓库理解成：
 

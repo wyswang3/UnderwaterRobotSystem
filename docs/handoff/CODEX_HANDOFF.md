@@ -5,6 +5,137 @@
 - 状态：Authoritative
 - 说明：Codex 当前阶段恢复上下文的高密度交接摘要。
 
+## 0.17 2026-03-31 追加更新：IMU Modbus CRC 线序对齐 + 串口单帧 dump + 默认日志目录修正
+
+本轮针对现场“Python 能读、C++ 读不出 / IMU 回包但解析失败”的老问题，做了一个明确收敛点：
+
+1. 将 WIT Modbus RTU 的 CRC 线序按标准对齐为 `lo-hi`（wire: low byte, then high byte），并在诊断器里兼容 `hi-lo` 历史实现。
+2. `uwnav_imu_modbus_probe` 默认改为标准 `lohi`，减少“默认命令发不通导致误判”的概率；仍支持 `--crc-order both` 做双顺序探测。
+3. IMU 串口诊断快照新增 `frame_dump_hex`，在 “IMU opened but no parseable frame ...” 场景下会额外打印一帧十六进制，方便后续改算法/协议栈。
+4. `nav_daemon.yaml` 默认日志目录改为仓内 `../data/nav`，避免 `/home/wys/...` 在不同用户名/权限下不可写导致日志功能不可用。
+5. `nav_daemon.yaml` 默认 IMU `port` 置空，优先走“按串口行为自动识别”而不是硬编码 `/dev/ttyUSBx`。
+
+本轮验证（仅代码侧最小回归）：
+
+* `cmake -S nav_core -B nav_core/build -DNAV_CORE_BUILD_TESTS=ON`：通过
+* `cmake --build nav_core/build --target uwnav_navd uwnav_imu_modbus_probe test_imu_serial_diagnostics -j4`：通过
+* `./nav_core/build/test_imu_serial_diagnostics`：通过
+
+## 0.16 2026-03-31 追加更新：`nav_core` 健康审查接入主链与根目录操作手册
+
+本轮同时触碰了：
+
+1. `Underwater-robot-navigation/nav_core` 核心导航主链
+2. `/home/wys/orangepi` 根目录下的操作员便捷说明
+
+其中核心 C++ 主链的范围仍然刻意收窄为一个 authority 模块：
+
+* 只动 `uwnav_navd / nav_core`
+* 不动 `nav_viewd`
+* 不动 `ControlGuard`
+* 不动 `ControlLoop`
+* 不动 `gcs_server`
+* 不改 shared `NavState` ABI
+
+为什么必须改这个点：
+
+1. 现场已经明确出现“IMU / 电压板串口跳变、C++ IMU 解析失败、无法快速判断是传感器问题还是 ESKF 问题”的实际故障。
+2. 用户要求导航侧能直接区分：
+   - 传感器输入异常
+   - 串口 / 时序链路异常
+   - ESKF 一致性问题
+   - ESKF 数值异常
+3. 这类问题如果不在 `nav_core` 主链里做，就只能靠离线日志猜，操作员运行时无法快速判断阻塞点。
+
+为什么这轮只改这个点：
+
+1. 只围绕 `uwnav_navd` 的设备识别、IMU/DVL 管线、健康审查和操作员反馈闭环。
+2. 没有扩到 `NavState` 共享契约，也没有把 GCS / ROS2 bridge / control 一起拖进 ABI 变更。
+3. 模块拆分只服务于这条主链的可维护性，没有顺手改别的 authority 模块。
+
+本轮已落地：
+
+1. IMU 串口识别从“配置路径优先”升级为“串口行为识别”：
+   - 先被动观察 Volt32 `CHn:` 自动回传
+   - 再主动发 WIT Modbus 探测
+   - 只有收到合法 IMU 回复才绑定为 IMU
+2. C++ IMU 串口初始化已对齐 Python raw `8N1`，修掉“Python 能读、C++ 读不出”的关键 drift。
+3. `nav_daemon` 已继续拆成小模块：
+   - `nav_daemon_devices`
+   - `nav_daemon_imu_pipeline`
+   - `nav_daemon_dvl_pipeline`
+   - `nav_daemon_publish`
+   - `nav_daemon_health_audit`
+4. `NavHealthMonitor` 已从 `NAV_CORE_ENABLE_GRAPH` 条件编译中独立出来，变成正常导航主链的一部分。
+5. 审查器现在会输出根因分类：
+   - `transport_timing`
+   - `sensor_input`
+   - `estimator_consistency`
+   - `estimator_numeric`
+6. IMU / DVL 两条管线现在都会把样本拒绝原因上报给审查器：
+   - preprocess reject
+   - stale
+   - out-of-order
+   - DVL gated reject
+7. 健康审查结果会低频输出到：
+   - stderr：`health audit changed: ...`
+   - `nav_events.csv`：`nav_health_audit_changed`
+8. `nav_daemon.yaml` 里的健康参数现在已真正进入运行时解析，不再是“看起来能改、实际没生效”。
+9. 根目录新增便捷操作手册：
+   - `/home/wys/orangepi/operator_manual.md`
+   它明确写清：
+   - 默认主路径是 `control_only`
+   - TUI 是 teleop 主路径
+   - GUI 是只读 status / motion observer
+   - 当前 GUI 已能观察机器人状态，但还不是完整导航工作站
+
+当前 GUI / 观察能力口径已固定为：
+
+1. 当前**可以**在上位机 GUI 窗口观察机器人状态。
+2. 但 GUI 当前只做：
+   - 连接状态
+   - 设备状态
+   - 控制状态
+   - 命令状态
+   - 故障摘要
+   - `Motion Info`
+3. 当前 `Motion Info` 只能按以下等级解释：
+   - `Control Only`
+   - `Attitude Feedback`
+   - `Relative Nav`
+4. 当前仍不能把 GUI 描述成：
+   - 完整绝对定位窗口
+   - 完整自动控制工作站
+   - teleop 主路径
+
+本轮验证：
+
+导航侧：
+
+* `cmake -S .../nav_core -B .../nav_core/build -DNAV_CORE_BUILD_TESTS=ON`：通过
+* `cmake --build .../nav_core/build --target uwnav_navd test_nav_health_monitor test_nav_daemon_config test_imu_port_selector test_serial_reconnect_integration test_imu_serial_diagnostics test_device_binding test_nav_runtime_status`：通过
+* `test_nav_health_monitor`：通过
+* `test_nav_daemon_config`：通过
+* `test_imu_port_selector`：通过
+* `test_serial_reconnect_integration`：通过
+* `test_imu_serial_diagnostics`：通过
+* `test_device_binding`：通过
+* `test_nav_runtime_status`：通过
+* `git diff --check`（`Underwater-robot-navigation`）：通过
+
+GCS / 操作员观察面：
+
+* `bash /home/wys/orangepi/UnderWaterRobotGCS/scripts/run_tui.sh --preflight-only`：通过
+* `QT_QPA_PLATFORM=offscreen bash /home/wys/orangepi/UnderWaterRobotGCS/scripts/run_gui.sh --no-auto-connect --quit-after-ms 200`：通过
+* `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m unittest tests.test_gui_overview_presenter tests.test_telemetry_viewmodels`：通过（7 个用例）
+
+当前剩余风险：
+
+1. `nav_core` 健康审查根因仍然是工程启发式，不是严格故障诊断器。
+2. 还没有做真实 IMU + DVL + Volt32 全链路现场回归。
+3. 为了避免扩散到多仓，本轮没有新增 `NavStatusFlags` 或 `NavFaultCode`；更细根因只在 stderr / `nav_events.csv`，不在 shared ABI。
+4. 根目录 `operator_manual.md` 是本机便捷入口，不是 docs 仓里版本化 runbook 的替代物；后续若流程变化，需继续同步。
+
 ## 0. 2026-03-26 覆盖更新
 
 从这一轮开始，核心 C++ 主链明确视为高风险区域，默认执行原则已经收紧：
@@ -854,4 +985,3 @@ mock 回归结果：
    - 先用真实 IMU / DVL / Volt32 设备跑一轮 hardware-in-the-loop smoke
    - 优先核对 launcher summary、各传感器 session summary 与 CSV 是否一致
    - 不要把当前 launcher 膨胀成 supervisor 或统一日志平台
-

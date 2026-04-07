@@ -157,6 +157,7 @@ class ProcessRuntime:
 @dataclass
 class RunContext:
     profile: Profile
+    real_pwm: bool
     run_id: str
     run_root: Path
     run_dir: Path
@@ -208,6 +209,16 @@ _STOP_REQUESTED = False
 
 def wall_time_now() -> str:
     return datetime.now().astimezone().isoformat(timespec='seconds')
+
+
+def pwm_backend_name(real_pwm: bool) -> str:
+    return 'stm32' if real_pwm else 'dummy'
+
+
+def pwm_backend_summary(real_pwm: bool) -> str:
+    if real_pwm:
+        return 'real STM32 PWM output enabled; pwm_control_program runs without --pwm-dummy'
+    return 'dummy PWM backend enabled; pwm_control_program appends --pwm-dummy and will not send packets to STM32'
 
 
 def safe_write_json(path: Path, obj: dict) -> None:
@@ -289,7 +300,7 @@ def resolve_target_run_dir(run_root: Path, run_dir: Optional[Path]) -> Optional[
     return discover_latest_run_dir(run_root)
 
 
-def build_control_comm_specs() -> List[ProcessSpec]:
+def build_control_comm_specs(*, real_pwm: bool = False) -> List[ProcessSpec]:
     pwm_bin = CTRL_ROOT / 'build' / 'bin' / 'pwm_control_program'
     gcs_bin = CTRL_ROOT / 'build' / 'bin' / 'gcs_server'
 
@@ -300,22 +311,25 @@ def build_control_comm_specs() -> List[ProcessSpec]:
     control_cfg = pwm_cfg_dir / 'control_params.yaml'
     teleop_cfg = pwm_cfg_dir / 'teleop_mixer.yaml'
 
+    pwm_command = [
+        str(pwm_bin),
+        '--config', str(pwm_cfg),
+        '--alloc-config', str(alloc_cfg),
+        '--traj-config', str(traj_cfg),
+        '--control-config', str(control_cfg),
+        '--teleop-mixer-config', str(teleop_cfg),
+        # 这里只禁用车载键盘 teleop 输入，保留 gcs_server 遥控链路作为当前主 operator lane。
+        '--no-teleop',
+    ]
+    if not real_pwm:
+        pwm_command.append('--pwm-dummy')
+
     return [
         ProcessSpec(
             name='pwm_control_program',
             role='control',
             cwd=CTRL_ROOT,
-            command=[
-                str(pwm_bin),
-                '--config', str(pwm_cfg),
-                '--alloc-config', str(alloc_cfg),
-                '--traj-config', str(traj_cfg),
-                '--control-config', str(control_cfg),
-                '--teleop-mixer-config', str(teleop_cfg),
-                # 这里只禁用车载键盘 teleop 输入，保留 gcs_server 遥控链路作为当前主 operator lane。
-                '--no-teleop',
-                '--pwm-dummy',
-            ],
+            command=pwm_command,
             required_paths=[pwm_bin, pwm_cfg, alloc_cfg, traj_cfg, control_cfg, teleop_cfg],
         ),
         ProcessSpec(
@@ -333,7 +347,7 @@ def build_control_comm_specs() -> List[ProcessSpec]:
     ]
 
 
-def build_profile(name: str) -> Profile:
+def build_profile(name: str, *, real_pwm: bool = False) -> Profile:
     if name == 'mock':
         sleep_bin = Path('/bin/sleep')
         specs = [
@@ -350,10 +364,13 @@ def build_profile(name: str) -> Profile:
 
     if name == 'control_only':
         # 当前默认最小可运行路径只启动 control + comm；导航缺失不再被当成 fatal。
+        desc = 'Default minimum runtime: start pwm_control_program + gcs_server with navigation disabled by design.'
+        if real_pwm:
+            desc += ' Real PWM output enabled for STM32 authority bring-up.'
         return Profile(
             name='control_only',
-            description='Default minimum runtime: start pwm_control_program + gcs_server with navigation disabled by design.',
-            process_specs=build_control_comm_specs(),
+            description=desc,
+            process_specs=build_control_comm_specs(real_pwm=real_pwm),
             gcs_bind_ip='0.0.0.0',
             gcs_bind_port=14550,
         )
@@ -388,11 +405,14 @@ def build_profile(name: str) -> Profile:
                 ],
                 required_paths=[gw_bin],
             ),
-            *build_control_comm_specs(),
+            *build_control_comm_specs(real_pwm=real_pwm),
         ]
+        desc = 'Bench-safe Phase 0 profile with explicit config paths, navigation bring-up, and --pwm-dummy.'
+        if real_pwm:
+            desc = 'Bench Phase 0 profile with explicit config paths, navigation bring-up, and real STM32 PWM output enabled.'
         return Profile(
             name='bench',
-            description='Bench-safe Phase 0 profile with explicit config paths, navigation bring-up, and --pwm-dummy.',
+            description=desc,
             process_specs=specs,
             gcs_bind_ip='0.0.0.0',
             gcs_bind_port=14550,
@@ -1053,6 +1073,9 @@ def build_manifest(ctx: RunContext) -> dict:
         'run_id': ctx.run_id,
         'profile': ctx.profile.name,
         'profile_description': ctx.profile.description,
+        'real_pwm': ctx.real_pwm,
+        'pwm_backend': pwm_backend_name(ctx.real_pwm),
+        'pwm_backend_summary': pwm_backend_summary(ctx.real_pwm),
         'startup_profile': ctx.startup_profile_name or None,
         'startup_profile_source': ctx.startup_profile_source or None,
         'recommended_startup_profile': ctx.recommended_startup_profile_name or None,
@@ -1098,6 +1121,9 @@ def build_process_status(ctx: RunContext) -> dict:
     return {
         'run_id': ctx.run_id,
         'profile': ctx.profile.name,
+        'real_pwm': ctx.real_pwm,
+        'pwm_backend': pwm_backend_name(ctx.real_pwm),
+        'pwm_backend_summary': pwm_backend_summary(ctx.real_pwm),
         'startup_profile': ctx.startup_profile_name or None,
         'startup_profile_source': ctx.startup_profile_source or None,
         'recommended_startup_profile': ctx.recommended_startup_profile_name or None,
@@ -1129,6 +1155,9 @@ def write_last_fault_summary(ctx: RunContext) -> None:
     lines = [
         f'run_id={ctx.run_id}',
         f'profile={ctx.profile.name}',
+        f"real_pwm={1 if ctx.real_pwm else 0}",
+        f"pwm_backend={pwm_backend_name(ctx.real_pwm)}",
+        f"pwm_backend_summary={pwm_backend_summary(ctx.real_pwm)}",
         f'updated_wall_time={ctx.last_fault_wall_time or wall_time_now()}',
         f'supervisor_state={ctx.supervisor_state}',
         f'event={ctx.last_fault_event}',
@@ -1488,6 +1517,7 @@ def shutdown_process(ctx: RunContext, runtime: ProcessRuntime, timeout_s: float)
 
 def init_run_context(
     profile: Profile,
+    real_pwm: bool,
     run_root: Path,
     run_dir: Path,
     child_output_mode: str,
@@ -1508,6 +1538,7 @@ def init_run_context(
             runtime.stderr_log_path.touch(exist_ok=True)
     return RunContext(
         profile=profile,
+        real_pwm=real_pwm,
         run_id=run_id,
         run_root=run_root,
         run_dir=run_dir,
@@ -1627,7 +1658,7 @@ def run_supervisor(args: argparse.Namespace) -> int:
     global _STOP_REQUESTED
     _STOP_REQUESTED = False
 
-    profile = build_profile(args.profile)
+    profile = build_profile(args.profile, real_pwm=getattr(args, 'real_pwm', False))
     run_root = args.run_root.resolve()
     run_dir = args.run_dir.resolve() if args.run_dir is not None else build_run_dir(run_root, args.run_id or build_run_id())
     child_output_mode = normalize_child_output_mode(
@@ -1637,6 +1668,7 @@ def run_supervisor(args: argparse.Namespace) -> int:
     )
     ctx = init_run_context(
         profile,
+        getattr(args, 'real_pwm', False),
         run_root,
         run_dir,
         child_output_mode,
@@ -1654,7 +1686,7 @@ def run_supervisor(args: argparse.Namespace) -> int:
         ctx,
         'supervisor_started',
         'info',
-        f'phase0 supervisor starting with profile={profile.name} child_output={ctx.child_output_mode}',
+        f'phase0 supervisor starting with profile={profile.name} child_output={ctx.child_output_mode} pwm_backend={pwm_backend_name(ctx.real_pwm)}',
         action='start',
         result='ok',
         pid=ctx.supervisor_pid,
@@ -1725,7 +1757,7 @@ def run_supervisor(args: argparse.Namespace) -> int:
 
 
 def cmd_preflight(args: argparse.Namespace) -> int:
-    profile = build_profile(args.profile)
+    profile = build_profile(args.profile, real_pwm=getattr(args, 'real_pwm', False))
     run_root = args.run_root.resolve()
     results = run_preflight_checks(
         profile,
@@ -1772,6 +1804,8 @@ def cmd_start(args: argparse.Namespace) -> int:
         '--child-output', child_output_mode,
         '--startup-profile', args.startup_profile,
     ]
+    if getattr(args, 'real_pwm', False):
+        child_cmd.append('--real-pwm')
     if args.skip_port_check:
         child_cmd.append('--skip-port-check')
 
@@ -1840,6 +1874,8 @@ def cmd_status(args: argparse.Namespace) -> int:
         f"run_id={data.get('run_id')} profile={data.get('profile')} "
         f"state={data.get('supervisor_state')} child_output={data.get('child_output_mode')}"
     )
+    if data.get('pwm_backend'):
+        header += f" pwm_backend={data.get('pwm_backend')}"
     if data.get('startup_profile'):
         header += f" startup_profile={data.get('startup_profile')}"
     if data.get('recommended_startup_profile'):
@@ -1857,6 +1893,9 @@ def cmd_status(args: argparse.Namespace) -> int:
     )
     print(
         f"motion_info={motion_info.get('state')} source={motion_info.get('source')} summary={motion_info.get('summary')}"
+    )
+    print(
+        f"pwm_backend={data.get('pwm_backend')} real_pwm={1 if data.get('real_pwm') else 0} summary={data.get('pwm_backend_summary')}"
     )
     print(
         'sensor_inventory=' + ' '.join(
@@ -2077,6 +2116,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     preflight.add_argument('--profile', default='control_only', choices=SUPERVISOR_PROFILE_CHOICES)
     preflight.add_argument('--run-root', type=Path, default=DEFAULT_RUN_ROOT)
     preflight.add_argument('--skip-port-check', action='store_true')
+    preflight.add_argument('--real-pwm', action='store_true', help='Enable real STM32 PWM output; do not append --pwm-dummy.')
     preflight.add_argument('--startup-profile', default=device_profiles.AUTO_PROFILE, choices=STARTUP_PROFILE_CHOICES)
     preflight.set_defaults(func=cmd_preflight)
 
@@ -2090,6 +2130,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     start.add_argument('--stop-timeout-s', type=float, default=8.0)
     start.add_argument('--fault-tail-lines', type=int, default=DEFAULT_FAULT_TAIL_LINES)
     start.add_argument('--skip-port-check', action='store_true')
+    start.add_argument('--real-pwm', action='store_true', help='Enable real STM32 PWM output; do not append --pwm-dummy.')
     start.add_argument('--startup-profile', default=device_profiles.AUTO_PROFILE, choices=STARTUP_PROFILE_CHOICES)
     start.add_argument('--child-output', choices=[OUTPUT_INHERIT, OUTPUT_CAPTURE, OUTPUT_QUIET])
     start.add_argument('--quiet-children', action='store_true', help='Compatibility alias for --child-output quiet')
@@ -2105,6 +2146,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     internal.add_argument('--stop-timeout-s', type=float, default=8.0)
     internal.add_argument('--fault-tail-lines', type=int, default=DEFAULT_FAULT_TAIL_LINES)
     internal.add_argument('--skip-port-check', action='store_true')
+    internal.add_argument('--real-pwm', action='store_true', help='Enable real STM32 PWM output; do not append --pwm-dummy.')
     internal.add_argument('--startup-profile', default=device_profiles.AUTO_PROFILE, choices=STARTUP_PROFILE_CHOICES)
     internal.add_argument('--child-output', choices=[OUTPUT_INHERIT, OUTPUT_CAPTURE, OUTPUT_QUIET], default=OUTPUT_CAPTURE)
     internal.add_argument('--quiet-children', action='store_true', help='Compatibility alias for --child-output quiet')
