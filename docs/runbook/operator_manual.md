@@ -19,6 +19,11 @@
 - 自动控制 / AUTO 放行
 - USBL / `full_stack` 现场流程
 
+重要澄清：
+
+- `bash tools/supervisor/run_local_teleop_smoke.sh up` 默认仍是 dummy backend。
+- 如果不显式加 `REAL_PWM=1` 或 `phase0_supervisor.py ... --real-pwm`，TUI 指令即使已经到达 `pwm_control_program`，也不会真正发包到 STM32。
+
 ## 1. 当前默认口径
 
 1. 默认 operator lane 固定为 `teleop primary lane`。
@@ -45,6 +50,12 @@ cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
 bash tools/supervisor/run_local_teleop_smoke.sh up
 ```
 
+如果要做真实 STM32 输出联调，必须显式改成：
+
+```bash
+REAL_PWM=1 bash tools/supervisor/run_local_teleop_smoke.sh up
+```
+
 这条命令会自动完成：
 
 1. `usb_serial_snapshot.py --json`
@@ -58,6 +69,7 @@ bash tools/supervisor/run_local_teleop_smoke.sh up
 
 1. `preflight` 通过。
 2. `runtime profile=control_only`。
+3. `status` 里 `pwm_backend=dummy` 或 `pwm_backend=stm32` 与当前预期一致。
 3. `status` 中至少存在：
    - `pwm_control_program`
    - `gcs_server`
@@ -73,12 +85,14 @@ cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
 python3 tools/supervisor/phase0_supervisor.py preflight \
   --profile control_only \
   --startup-profile auto \
+  --real-pwm \
   --run-root /tmp/phase0_supervisor_control_only
 
 python3 tools/supervisor/phase0_supervisor.py start \
   --profile control_only \
   --startup-profile auto \
   --detach \
+  --real-pwm \
   --run-root /tmp/phase0_supervisor_control_only \
   --start-settle-s 0.2 \
   --poll-interval-s 0.2 \
@@ -153,6 +167,27 @@ UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_tui.sh
 2. `preflight` 没过时，不要继续进入 TUI。
 3. TUI 才是当前完整键盘 teleop 基线。
 
+### 3.1.1 怎么确认是不是已经在打真实 STM32
+
+优先看车端 `status` 输出，而不是只看 TUI 有无按键反馈：
+
+```bash
+cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+python3 tools/supervisor/phase0_supervisor.py status --json
+```
+
+至少确认以下三点：
+
+1. `pwm_backend=stm32`。
+2. `real_pwm=1`。
+3. `pwm_control_program` 的命令行里没有 `--pwm-dummy`。
+
+如果这里显示的是 `pwm_backend=dummy`，那么当前链路只能说明：
+
+1. GCS 指令已经到了车端。
+2. `pwm_control_program` 已经算出了 PWM。
+3. 但还没有真正发包到 STM32。
+
 ### 3.2 GUI 只读观察
 
 GUI 只做状态预览，不替代 TUI：
@@ -179,6 +214,14 @@ UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_gui.sh
 cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
 bash tools/supervisor/run_local_teleop_smoke.sh down
 bash tools/supervisor/run_local_teleop_smoke.sh up
+```
+
+如果是实机放行前的真实输出联调，终端 1 必须改成：
+
+```bash
+cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+bash tools/supervisor/run_local_teleop_smoke.sh down
+REAL_PWM=1 bash tools/supervisor/run_local_teleop_smoke.sh up
 ```
 
 终端 2：

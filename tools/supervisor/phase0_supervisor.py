@@ -157,6 +157,7 @@ class ProcessRuntime:
 @dataclass
 class RunContext:
     profile: Profile
+    real_pwm: bool
     run_id: str
     run_root: Path
     run_dir: Path
@@ -208,6 +209,16 @@ _STOP_REQUESTED = False
 
 def wall_time_now() -> str:
     return datetime.now().astimezone().isoformat(timespec='seconds')
+
+
+def pwm_backend_name(real_pwm: bool) -> str:
+    return 'stm32' if real_pwm else 'dummy'
+
+
+def pwm_backend_summary(real_pwm: bool) -> str:
+    if real_pwm:
+        return 'real STM32 PWM output enabled; pwm_control_program runs without --pwm-dummy'
+    return 'dummy PWM backend enabled; pwm_control_program appends --pwm-dummy and will not send packets to STM32'
 
 
 def safe_write_json(path: Path, obj: dict) -> None:
@@ -1062,6 +1073,9 @@ def build_manifest(ctx: RunContext) -> dict:
         'run_id': ctx.run_id,
         'profile': ctx.profile.name,
         'profile_description': ctx.profile.description,
+        'real_pwm': ctx.real_pwm,
+        'pwm_backend': pwm_backend_name(ctx.real_pwm),
+        'pwm_backend_summary': pwm_backend_summary(ctx.real_pwm),
         'startup_profile': ctx.startup_profile_name or None,
         'startup_profile_source': ctx.startup_profile_source or None,
         'recommended_startup_profile': ctx.recommended_startup_profile_name or None,
@@ -1107,6 +1121,9 @@ def build_process_status(ctx: RunContext) -> dict:
     return {
         'run_id': ctx.run_id,
         'profile': ctx.profile.name,
+        'real_pwm': ctx.real_pwm,
+        'pwm_backend': pwm_backend_name(ctx.real_pwm),
+        'pwm_backend_summary': pwm_backend_summary(ctx.real_pwm),
         'startup_profile': ctx.startup_profile_name or None,
         'startup_profile_source': ctx.startup_profile_source or None,
         'recommended_startup_profile': ctx.recommended_startup_profile_name or None,
@@ -1138,6 +1155,9 @@ def write_last_fault_summary(ctx: RunContext) -> None:
     lines = [
         f'run_id={ctx.run_id}',
         f'profile={ctx.profile.name}',
+        f"real_pwm={1 if ctx.real_pwm else 0}",
+        f"pwm_backend={pwm_backend_name(ctx.real_pwm)}",
+        f"pwm_backend_summary={pwm_backend_summary(ctx.real_pwm)}",
         f'updated_wall_time={ctx.last_fault_wall_time or wall_time_now()}',
         f'supervisor_state={ctx.supervisor_state}',
         f'event={ctx.last_fault_event}',
@@ -1497,6 +1517,7 @@ def shutdown_process(ctx: RunContext, runtime: ProcessRuntime, timeout_s: float)
 
 def init_run_context(
     profile: Profile,
+    real_pwm: bool,
     run_root: Path,
     run_dir: Path,
     child_output_mode: str,
@@ -1517,6 +1538,7 @@ def init_run_context(
             runtime.stderr_log_path.touch(exist_ok=True)
     return RunContext(
         profile=profile,
+        real_pwm=real_pwm,
         run_id=run_id,
         run_root=run_root,
         run_dir=run_dir,
@@ -1646,6 +1668,7 @@ def run_supervisor(args: argparse.Namespace) -> int:
     )
     ctx = init_run_context(
         profile,
+        getattr(args, 'real_pwm', False),
         run_root,
         run_dir,
         child_output_mode,
@@ -1663,7 +1686,7 @@ def run_supervisor(args: argparse.Namespace) -> int:
         ctx,
         'supervisor_started',
         'info',
-        f'phase0 supervisor starting with profile={profile.name} child_output={ctx.child_output_mode}',
+        f'phase0 supervisor starting with profile={profile.name} child_output={ctx.child_output_mode} pwm_backend={pwm_backend_name(ctx.real_pwm)}',
         action='start',
         result='ok',
         pid=ctx.supervisor_pid,
@@ -1851,6 +1874,8 @@ def cmd_status(args: argparse.Namespace) -> int:
         f"run_id={data.get('run_id')} profile={data.get('profile')} "
         f"state={data.get('supervisor_state')} child_output={data.get('child_output_mode')}"
     )
+    if data.get('pwm_backend'):
+        header += f" pwm_backend={data.get('pwm_backend')}"
     if data.get('startup_profile'):
         header += f" startup_profile={data.get('startup_profile')}"
     if data.get('recommended_startup_profile'):
@@ -1868,6 +1893,9 @@ def cmd_status(args: argparse.Namespace) -> int:
     )
     print(
         f"motion_info={motion_info.get('state')} source={motion_info.get('source')} summary={motion_info.get('summary')}"
+    )
+    print(
+        f"pwm_backend={data.get('pwm_backend')} real_pwm={1 if data.get('real_pwm') else 0} summary={data.get('pwm_backend_summary')}"
     )
     print(
         'sensor_inventory=' + ' '.join(

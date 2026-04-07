@@ -107,6 +107,7 @@
 - `docs/architecture/ros2_refactor_assessment.md`
 - `docs/productization/ui_upgrade_plan.md`
 - `docs/productization/ui_windows_support_audit.md`
+- `docs/productization/commercial_upgrade_roadmap.md`
 
 ## 5. 当前 Archived / Historical 文档
 

@@ -37,6 +37,13 @@
 - 只读观察入口：`UnderWaterRobotGCS` GUI overview
 - 结构化调试快照：`phase0_supervisor.py status --json`
 
+当前还必须明确区分两种车端启动语义：
+
+- 默认 helper / 默认 `control_only` bring-up：仍保持 dummy backend，只验证 control + comm + logs。
+- 显式 `REAL_PWM=1` / `--real-pwm`：才允许进入真实 STM32 PWM 输出联调。
+
+因此，“TUI 有指令、`pwm_control_program` 有 PWM 日志”在默认 helper 下只能说明控制链到达了车端，不能单独证明 STM32 已收到 PWM。
+
 ## 能力等级定义
 
 ### 1. `control_only`

@@ -34,6 +34,17 @@ run_cmd() {
   "$@"
 }
 
+print_pwm_mode_banner() {
+  echo ""
+  if [[ "${REAL_PWM}" == "1" ]]; then
+    echo "[INFO] PWM backend mode: STM32"
+    echo "[INFO] helper will pass --real-pwm; pwm_control_program will not append --pwm-dummy."
+  else
+    echo "[INFO] PWM backend mode: DUMMY"
+    echo "[INFO] helper default keeps --pwm-dummy; TUI commands can reach pwm_control_program, but no packets will be sent to STM32."
+  fi
+}
+
 print_usage() {
   cat <<EOF
 Usage: bash tools/supervisor/run_local_teleop_smoke.sh <up|status|down|help>
@@ -60,6 +71,7 @@ EOF
 run_prepare() {
   cd "${REPO_ROOT}"
   local -a extra_args=()
+  print_pwm_mode_banner
   if [[ "${REAL_PWM}" == "1" ]]; then
     extra_args+=(--real-pwm)
   fi
@@ -98,6 +110,7 @@ EOF
 
 run_status() {
   cd "${REPO_ROOT}"
+  print_pwm_mode_banner
   run_cmd "${PYTHON_BIN}" "${SUPERVISOR}" status --run-root "${RUN_ROOT}"
   run_cmd "${PYTHON_BIN}" "${SUPERVISOR}" status --run-root "${RUN_ROOT}" --json
 }

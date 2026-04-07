@@ -55,6 +55,12 @@ cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
 bash tools/supervisor/run_local_teleop_smoke.sh up
 ```
 
+注意：
+
+1. 这条命令默认是 dummy backend。
+2. 它验证的是 `gcs_server -> pwm_control_program` 控制链和日志链，不等于真实 STM32 已经收到了 PWM。
+3. 如果要做真实 STM32 联调，必须显式执行 `REAL_PWM=1 bash tools/supervisor/run_local_teleop_smoke.sh up`。
+
 这条命令会按当前权威顺序自动执行：
 
 1. `usb_serial_snapshot.py --json`
@@ -71,6 +77,7 @@ bash tools/supervisor/run_local_teleop_smoke.sh up
 2. 输出里应出现 `runtime profile=control_only`。
 3. `status` 里应看到：
    - `profile=control_only`
+   - `pwm_backend=dummy`
    - `operator_lane=teleop_primary`
    - `capability=control_only`
    - `motion_info=not_enabled_for_capability`
@@ -171,6 +178,20 @@ UROGCS_ROV_IP=127.0.0.1 bash scripts/run_tui.sh
 2. `gcs_server + pwm_control_program` 能否在 `--pwm-dummy` 下稳定联动。
 3. PWM 是否已经在车端被正确计算并写入日志。
 
+如果要把这条链路升级成真实 STM32 输出联调，终端 1 必须改成：
+
+```bash
+cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+bash tools/supervisor/run_local_teleop_smoke.sh down
+REAL_PWM=1 bash tools/supervisor/run_local_teleop_smoke.sh up
+```
+
+然后先确认 `status` 输出里是：
+
+1. `pwm_backend=stm32`
+2. `real_pwm=1`
+3. `pwm_control_program` 命令行中没有 `--pwm-dummy`
+
 ## D. 终端 3：GCS GUI 只读观察
 
 ```bash
@@ -212,6 +233,11 @@ tail -f /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/logs/pwm
 
 1. `ch1_cmd` 到 `ch8_cmd`：控制链算出来准备下发的 PWM。
 2. `ch1_applied` 到 `ch8_applied`：当前 backend 实际应用的 PWM。
+
+需要注意：
+
+1. 在 `pwm_backend=dummy` 下，`applied` 只能说明本机控制链已应用，不等于 STM32 已收到。
+2. 只有 `pwm_backend=stm32` 且 `pwm_control_program` 未带 `--pwm-dummy` 时，才允许把这份日志解释成真实下发链的一部分。
 
 如果只想本机直接看终端里的 PWM 打印，而不带 teleop 联调，可以单独执行：
 
