@@ -5,6 +5,72 @@
 - 状态：Authoritative
 - 说明：按时间顺序记录 Codex 每轮完成事项、验证方式、阻塞点、文档更新与 Git 收口情况。
 
+## 2026-04-14（GCS 显式调试开关、导航显示收紧、操作员入口与环境脚本）
+
+### 完成内容
+
+- 继续只触碰 supervisor / launcher / GCS / runbook / handoff，不碰核心 C++ authority 主链。
+- 在 `UnderWaterRobotGCS` 收口了会话调试口径：
+  - 默认关闭 session debug
+  - 仅在 `--debug-session` 或 `UROGCS_SESSION_DEBUG=1` 时显式打开
+- 在 `UnderWaterRobotGCS` 收紧了 `Motion Info` / capability 判定：
+  - 只有 runtime nav 当前 `fresh + valid` 时，才对外宣称 `Attitude Feedback` / `Relative Nav`
+  - 原先“设备在线但 runtime nav 已 invalid/stale 仍误报导航能力”的下游显示问题已修正
+- 在 `UnderwaterRobotSystem` 扩展 `run_local_teleop_smoke.sh`，新增：
+  - `up-real`
+  - `restart`
+  - `restart-real`
+  - `doctor`
+  - `teleop`
+  - `gui`
+- 新增进入环境脚本：
+  - `scripts/enter_gcs_env.sh`
+  - `tools/supervisor/enter_supervisor_env.sh`
+- 更新并版本化了操作员文档：
+  - `docs/runbook/香橙派_当前实验_操作员使用说明.md`
+  - `docs/runbook/operator_manual.md`
+  - `docs/runbook/gcs_ui_operator_guide.md`
+  - `docs/documentation_index.md`
+- 工作区层面补充了 `.gitignore`，并撤掉了这轮不需要保留的测试改动。
+
+### 验证结果
+
+- `bash -n` 覆盖新增 / 修改的 shell 脚本：通过
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && bash scripts/run_tui.sh --preflight-only --debug-session`：通过
+- `cd /home/wys/orangepi/UnderWaterRobotGCS && QT_QPA_PLATFORM=offscreen bash scripts/run_gui.sh --preflight-only --no-auto-connect`：通过
+- `cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem && bash tools/supervisor/run_local_teleop_smoke.sh help`：通过
+- `cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem && RUN_ROOT=/tmp/phase0_supervisor_local_smoke_nonexistent bash tools/supervisor/run_local_teleop_smoke.sh doctor`：通过
+- `source scripts/enter_gcs_env.sh`：通过
+- `source tools/supervisor/enter_supervisor_env.sh`：通过
+- 上一轮已完成且仍有效的 GCS Python 单测 / py_compile / C++ SHM status 相关测试：保持通过
+
+### 阻塞点
+
+1. 真实设备上“导航共享内存链断裂”问题仍未拿到 bench 样本，无法在不冒风险的前提下盲改核心 C++ 主链。
+2. 当前已修复的是 GCS 下游显示与调试入口问题，不等于已经证明 `uwnav_navd -> nav_viewd -> gcs_server/pwm_control_program` 全链无问题。
+3. 现场若继续报导航数据发布/读取异常，下一轮必须先抓真实日志样本，再决定是否进入核心 C++ 单点修复。
+
+### 文档更新
+
+- 更新了：
+  - `docs/handoff/CODEX_HANDOFF.md`
+  - `docs/handoff/CODEX_PROGRESS_LOG.md`
+  - `docs/handoff/CODEX_NEXT_ACTIONS.md`
+- 此外，运行与操作侧基线文档也同步更新：
+  - `docs/runbook/香橙派_当前实验_操作员使用说明.md`
+  - `docs/runbook/operator_manual.md`
+  - `docs/runbook/gcs_ui_operator_guide.md`
+  - `docs/documentation_index.md`
+
+### Git 收口
+
+- `UnderwaterRobotSystem/UnderwaterRobotSystem`
+  - `8502554 Improve operator startup and troubleshooting docs`
+- `UnderWaterRobotGCS`
+  - `95d49a2 Make session debug explicit and tighten nav display`
+  - `e7ca92e Add GCS launcher environment helpers`
+- 未执行 `git push`
+
 ## 2026-03-27（本机 teleop / PWM 命令卡与本地提交准备）
 
 ### 完成内容
@@ -949,4 +1015,3 @@
 
 - 本轮实际代码与文档改动只在 `UnderwaterRobotSystem`
 - 未执行 `git push`
-

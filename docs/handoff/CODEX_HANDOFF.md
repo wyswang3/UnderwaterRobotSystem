@@ -5,6 +5,140 @@
 - 状态：Authoritative
 - 说明：Codex 当前阶段恢复上下文的高密度交接摘要。
 
+## 0.18 2026-04-14 追加更新：GCS 显式调试开关、导航显示收紧、操作员入口与环境脚本收口
+
+本轮继续只触碰外围模块：
+
+1. `UnderWaterRobotGCS` 的 launcher / session debug / UI wording
+2. `UnderwaterRobotSystem` 的 supervisor helper / runbook / handoff
+3. 不触碰 `uwnav_navd`、`nav_viewd`、`ControlGuard`、`ControlLoop`、`gcs_server` 核心 authority 行为
+4. 不改 shared ABI
+
+### 本轮现场问题背景
+
+用户侧当前反馈集中在三个点：
+
+1. 导航共享内存衔接存在异常感知：
+   - 导航数据不能稳定从导航侧发布并被其他模块读取
+   - 上位机界面也不能稳定显示导航相关信息
+2. GCS 调试模式不应默认开启，正常运行应是默认非调试，只有命令行显式开启才进入调试模式
+3. 操作员启动和简单排障门槛仍偏高：
+   - 不熟悉 Python / 虚拟环境 / 解释器路径
+   - 不熟悉切仓库、赋权、环境变量、TUI/GUI 启动顺序
+
+### 本轮已确认并已落地的改动
+
+#### GCS 运行与显示面
+
+1. GCS 会话调试默认关闭，改为显式入口：
+   - 新增 `--debug-session`
+   - 新增统一配置 `session_debug`
+   - 环境变量优先识别 `UROGCS_SESSION_DEBUG`
+   - 仍兼容旧的 `UROGCS_DEBUG`
+2. GCS `Motion Info` / capability 表达已收紧：
+   - 只有 runtime nav 当前 `fresh + valid` 时，才允许升级为 `Attitude Feedback` / `Relative Nav`
+   - 仅有 IMU/DVL 在线、但 runtime nav 已 invalid / stale / degraded 时，界面继续保守显示 `Control Only`
+3. 这轮没有实机复现并修改核心 C++ SHM authority 链；原因是现有 C++ SHM / status 相关测试通过，无法在没有 bench 样本时盲改主链。
+
+#### 操作员入口与启动便利性
+
+1. `tools/supervisor/run_local_teleop_smoke.sh` 已升级为操作员主入口，支持：
+   - `up`
+   - `up-real`
+   - `restart`
+   - `restart-real`
+   - `status`
+   - `doctor`
+   - `teleop`
+   - `gui`
+   - `down`
+2. `doctor` 已能把当前状态、进程是否齐、最近 fault、日志位置和建议下一步收成短摘要。
+3. `teleop` / `gui` 已可从 supervisor helper 直接跳转到 GCS 仓，减少“切仓库 + 背环境变量”的负担。
+
+#### Python / 虚拟环境 / 解释器入口
+
+1. 新增：
+   - `UnderWaterRobotGCS/scripts/enter_gcs_env.sh`
+   - `UnderwaterRobotSystem/UnderwaterRobotSystem/tools/supervisor/enter_supervisor_env.sh`
+2. 当前解释器选择顺序已经固定：
+   - GCS：`UROGCS_PYTHON_BIN -> .venv/bin/python -> python3 -> python`
+   - supervisor/helper：`URO_SUPERVISOR_PYTHON_BIN -> .venv/bin/python -> python3 -> python`
+3. GCS launcher 现在会打印实际使用的 Python 路径和版本，便于现场确认。
+
+#### 文档与工作区整理
+
+1. 新增并版本化：
+   - `docs/runbook/香橙派_当前实验_操作员使用说明.md`
+2. 已更新：
+   - `docs/runbook/operator_manual.md`
+   - `docs/runbook/gcs_ui_operator_guide.md`
+   - `docs/documentation_index.md`
+3. `.gitignore` 已补充：
+   - `.venv`
+   - pytest / mypy / ruff cache
+   - coverage
+   - `.bak/.orig/.rej`
+   - `.DS_Store`
+   - `*.pid`
+4. 已撤掉这轮不需要跟着走的测试改动，只保留运行、文档、launcher 和 helper 相关差异。
+
+### 本轮验证
+
+GCS：
+
+* `bash -n /home/wys/orangepi/UnderWaterRobotGCS/scripts/run_tui.sh`：通过
+* `bash -n /home/wys/orangepi/UnderWaterRobotGCS/scripts/run_gui.sh`：通过
+* `bash -n /home/wys/orangepi/UnderWaterRobotGCS/scripts/enter_gcs_env.sh`：通过
+* `cd /home/wys/orangepi/UnderWaterRobotGCS && bash scripts/run_tui.sh --preflight-only --debug-session`：通过
+* `cd /home/wys/orangepi/UnderWaterRobotGCS && QT_QPA_PLATFORM=offscreen bash scripts/run_gui.sh --preflight-only --no-auto-connect`：通过
+* `source scripts/enter_gcs_env.sh`：通过，并确认当前机器常见解释器落在 `Python 3.11.11`
+
+supervisor / runbook：
+
+* `bash -n /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem/tools/supervisor/run_local_teleop_smoke.sh`：通过
+* `bash -n /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem/tools/supervisor/enter_supervisor_env.sh`：通过
+* `cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem && bash tools/supervisor/run_local_teleop_smoke.sh help`：通过
+* `cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem && RUN_ROOT=/tmp/phase0_supervisor_local_smoke_nonexistent bash tools/supervisor/run_local_teleop_smoke.sh doctor`：通过
+* `source tools/supervisor/enter_supervisor_env.sh`：通过
+
+上一轮遗留、且仍有效的运行时验证：
+
+* `python3 -m py_compile` 覆盖本轮前一批修改的 GCS Python 文件：通过
+* `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m unittest tests.test_telemetry_viewmodels tests.test_gui_overview_presenter`：通过
+* `cd /home/wys/orangepi/UnderWaterRobotGCS && PYTHONPATH=src python3 -m unittest tests.test_nav_diagnostics tests.test_ros2_mirror_adapter tests.test_ros2_mirror_source`：通过
+* 既有 C++ SHM / status 相关测试：
+  - `test_nav_view_builder`
+  - `test_nav_view_policy`
+  - `test_nav_view_shm_source`
+  - `test_nav_reconnect_pipeline`
+  - `test_session`
+  均通过
+
+### 当前风险与未完成项
+
+1. 这轮仍未在真实设备上复现“`uwnav_navd -> nav_viewd -> pwm_control_program/gcs_server` 导航共享链真正断裂”的 bench 样本。
+2. 因此当前已修的是两个已确认的下游问题：
+   - GCS 调试入口默认值 / 显式控制
+   - GCS 对导航能力的误报显示
+3. 真实设备就绪后，若现场仍看到导航数据发布/读取异常，下一步应直接抓样本：
+   - `uwnav_navd` stderr
+   - `nav_viewd` stderr
+   - `logs/nav/nav_events.csv`
+   - `logs/control/control_loop_*.csv`
+   - `logs/telemetry/telemetry_timeline_*.csv`
+4. 当前 helper / runbook 已显著降低操作门槛，但还没有把“单命令打包 incident bundle + 归档 + 提示反馈路径”进一步合并到 `doctor/down`。
+
+### 当前已落地的本地提交
+
+`UnderwaterRobotSystem/UnderwaterRobotSystem`：
+
+* `8502554 Improve operator startup and troubleshooting docs`
+
+`UnderWaterRobotGCS`：
+
+* `95d49a2 Make session debug explicit and tighten nav display`
+* `e7ca92e Add GCS launcher environment helpers`
+
 ## 0.17 2026-03-31 追加更新：IMU Modbus CRC 线序对齐 + 串口单帧 dump + 默认日志目录修正
 
 本轮针对现场“Python 能读、C++ 读不出 / IMU 回包但解析失败”的老问题，做了一个明确收敛点：

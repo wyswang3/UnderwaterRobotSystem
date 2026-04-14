@@ -5,6 +5,54 @@
 - 状态：Authoritative
 - 说明：定义当前最高优先级任务、允许范围、禁止事项和验收标准，供下一轮 Codex 直接执行。
 
+## 0.80 2026-04-14 当前新增执行口径：先用新的 operator/helper 入口收样本，再决定是否进入核心 C++ SHM 修复
+
+当前已经确认：
+
+1. 操作员入口、环境脚本和 GCS 调试开关已经收口：
+   - `up-real`
+   - `doctor`
+   - `teleop`
+   - `gui`
+   - `scripts/enter_gcs_env.sh`
+   - `tools/supervisor/enter_supervisor_env.sh`
+2. GCS `Motion Info` 误报问题已经修正：
+   - 设备在线不再等于导航能力已有效
+   - 只有 runtime nav `fresh + valid` 才升级显示
+3. 但“导航共享链真实断裂”仍未在 bench 上拿到可复现样本，因此当前不能宣称核心 C++ 链已修好。
+
+因此下一轮优先顺序固定为：
+
+1. 若现场仍报“导航不能发布 / 其他模块读不到 / 上位机不显示”，先按新 helper 路径复现一次：
+   - 终端 1：`bash tools/supervisor/run_local_teleop_smoke.sh up-real`
+   - 终端 1：`bash tools/supervisor/run_local_teleop_smoke.sh doctor`
+   - 终端 2：`ROV_IP=<OrangePi_IP> bash tools/supervisor/run_local_teleop_smoke.sh teleop`
+   - 终端 3：`ROV_IP=<OrangePi_IP> bash tools/supervisor/run_local_teleop_smoke.sh gui`
+2. 若问题仍在，必须先抓样本，不允许直接盲改核心 C++：
+   - `uwnav_navd` stderr
+   - `nav_viewd` stderr
+   - `logs/nav/nav_events.csv`
+   - `logs/control/control_loop_*.csv`
+   - `logs/telemetry/telemetry_timeline_*.csv`
+3. 只有拿到真实样本后，才允许讨论是否进入下一个核心小点：
+   - `nav_viewd` shared read path
+   - `gcs_server` telemetry mirror source
+   - `pwm_control_program` nav view consume path
+4. 若问题只剩“操作员不会启动 / 不会排障”，继续只在外围收口：
+   - helper 文案
+   - `doctor/down` 输出
+   - runbook / operator card
+   - incident bundle 一键化
+
+验收标准：
+
+1. 能用新的 helper / env 脚本在现场把链路拉起。
+2. 能明确区分：
+   - GCS 显示误报
+   - GCS 调试默认值问题
+   - 核心 C++ SHM 数据链真实中断
+3. 若要改核心 C++，必须先带着真实样本进入“单模块、单点、单轮最小回归”。
+
 ## 0. 2026-03-26 执行原则更新
 
 从这一轮开始，执行原则新增以下硬约束：
