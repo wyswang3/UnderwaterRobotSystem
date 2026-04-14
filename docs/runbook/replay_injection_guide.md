@@ -65,21 +65,21 @@ nav_state_window.bin
 ### 步骤 2：启动 `nav_viewd`
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV
+cd <OrangePi_STM32_for_ROV repo root>
 ./build/bin/nav_viewd   --nav-state-shm /rov_nav_state_v1   --nav-view-shm /rovctrl_nav_view_v1
 ```
 
 ### 步骤 3：启动控制侧
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV
+cd <OrangePi_STM32_for_ROV repo root>
 ./build/bin/pwm_control_program --no-teleop --pwm-dummy --pwm-dummy-print
 ```
 
 ### 步骤 4：注入事故窗口
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core
+cd <Underwater-robot-navigation repo root>/nav_core
 ./build/bin/uwnav_nav_replay   --incident-bundle /tmp/replay_bundle_case01   --nav-state-shm /rov_nav_state_v1   --speed 1.0
 ```
 

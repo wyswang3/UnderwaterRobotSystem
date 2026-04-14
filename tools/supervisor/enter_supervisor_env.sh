@@ -9,6 +9,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+PROJECT_PY311_VENV="${URO_PROJECT_PY311_VENV:-${HOME}/venvs/py311}"
 cd "${REPO_ROOT}"
 
 select_python() {
@@ -21,6 +22,10 @@ select_python() {
   fi
   if [[ -x "${REPO_ROOT}/.venv/bin/python" ]]; then
     URO_SUPERVISOR_PYTHON_BIN="${REPO_ROOT}/.venv/bin/python"
+    return 0
+  fi
+  if [[ -x "${PROJECT_PY311_VENV}/bin/python" ]]; then
+    URO_SUPERVISOR_PYTHON_BIN="${PROJECT_PY311_VENV}/bin/python"
     return 0
   fi
   if command -v python3 >/dev/null 2>&1; then
@@ -41,6 +46,9 @@ export URO_SUPERVISOR_PYTHON_BIN
 if [[ -f "${REPO_ROOT}/.venv/bin/activate" && "${URO_SUPERVISOR_PYTHON_BIN}" == "${REPO_ROOT}/.venv/bin/python" ]]; then
   # shellcheck disable=SC1091
   source "${REPO_ROOT}/.venv/bin/activate"
+elif [[ -f "${PROJECT_PY311_VENV}/bin/activate" && "${URO_SUPERVISOR_PYTHON_BIN}" == "${PROJECT_PY311_VENV}/bin/python" ]]; then
+  # shellcheck disable=SC1091
+  source "${PROJECT_PY311_VENV}/bin/activate"
 fi
 
 echo "[INFO] Supervisor root: ${REPO_ROOT}"

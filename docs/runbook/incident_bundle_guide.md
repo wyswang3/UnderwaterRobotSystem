@@ -27,7 +27,7 @@
 默认导出最近一次 run：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+cd <UnderwaterRobotSystem repo root>
 python3 tools/supervisor/phase0_supervisor.py bundle   --run-root /tmp/phase0_supervisor_mock
 ```
 
@@ -182,7 +182,7 @@ bundle/
 说明当前 bundle 已经具备最小 replay 输入。此时可以直接使用 summary 里的 `command_hint`，或手动执行：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core
+cd <Underwater-robot-navigation repo root>/nav_core
 python3 tools/merge_robot_timeline.py   --nav-timing /path/to/nav_timing.bin   --nav-state /path/to/nav_state.bin   --control-log /path/to/control_loop_xxx.csv   --telemetry-timeline /path/to/telemetry_timeline_xxx.csv   --telemetry-events /path/to/telemetry_events_xxx.csv   --bundle-dir /tmp/replay_bundle_case01
 ```
 
@@ -193,7 +193,7 @@ python3 tools/merge_robot_timeline.py   --nav-timing /path/to/nav_timing.bin   -
 如果 bundle 已经导出，只是想保留样本或交给别人继续分析，可以使用最小 helper：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+cd <UnderwaterRobotSystem repo root>
 python3 tools/supervisor/bundle_archive.py   --run-dir /path/to/run_dir
 ```
 

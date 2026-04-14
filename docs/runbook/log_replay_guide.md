@@ -41,7 +41,7 @@
 先用：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core
+cd <Underwater-robot-navigation repo root>/nav_core
 python3 tools/parse_nav_timing.py --input /path/to/nav_timing.bin
 ```
 
@@ -57,7 +57,7 @@ python3 tools/parse_nav_timing.py --input /path/to/nav_timing.bin
 当前统一时间线工具：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core
+cd <Underwater-robot-navigation repo root>/nav_core
 python3 tools/merge_robot_timeline.py   --nav-timing /path/to/nav_timing.bin   --nav-state /path/to/nav_state.bin   --control-log /path/to/control_loop_xxx.csv   --telemetry-timeline /path/to/telemetry_timeline_xxx.csv   --telemetry-events /path/to/telemetry_events_xxx.csv   --bundle-dir /tmp/replay_bundle_case01
 ```
 
@@ -95,7 +95,7 @@ python3 tools/merge_robot_timeline.py   --nav-timing /path/to/nav_timing.bin   -
 当前关键状态对照工具：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core
+cd <Underwater-robot-navigation repo root>/nav_core
 python3 tools/replay_compare.py   --incident-bundle /tmp/replay_bundle_case01   --replay-control-log /path/to/replay/control_loop_xxx.csv   --replay-telemetry-timeline /path/to/replay/telemetry_timeline_xxx.csv   --replay-telemetry-events /path/to/replay/telemetry_events_xxx.csv
 ```
 

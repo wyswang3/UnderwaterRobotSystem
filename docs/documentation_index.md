@@ -36,7 +36,7 @@
 
 每次新会话启动后，优先阅读顺序固定为：
 
-1. `/home/wys/orangepi/AGENTS.md`
+1. 工作区根目录下的 `AGENTS.md`
 2. `docs/handoff/CODEX_HANDOFF.md`
 3. `docs/handoff/CODEX_NEXT_ACTIONS.md`
 4. `docs/project_memory.md`

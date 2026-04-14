@@ -28,9 +28,14 @@ GCS 启动脚本当前固定遵循以下解释器优先级：
 如果需要手动进入环境，可先执行：
 
 ```bash
-cd /home/wys/orangepi/UnderWaterRobotGCS
+cd <UnderWaterRobotGCS repo root>
 source scripts/enter_gcs_env.sh
 ```
+
+补充说明：
+
+- 实际分机部署时，GCS 应在上位机的 `UnderWaterRobotGCS` 仓运行，OrangePi 侧只负责车端 runtime。
+- `tools/supervisor/run_local_teleop_smoke.sh teleop/gui` 仅适用于本机同时检出两个仓库的联调工作区，不作为实际部署基线。
 
 ## 1. 当前推荐启动顺序
 
@@ -51,7 +56,7 @@ source scripts/enter_gcs_env.sh
 #### Linux GUI preview（UDP 主路径）
 
 ```bash
-cd /home/wys/orangepi/UnderWaterRobotGCS
+cd <UnderWaterRobotGCS repo root on the upper computer>
 UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_gui.sh
 ```
 
@@ -65,8 +70,8 @@ UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_gui.sh --debug-session
 
 ```bash
 . /opt/ros/humble/setup.bash
-. /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/ros2_bridge/install/setup.bash
-cd /home/wys/orangepi/UnderWaterRobotGCS
+. <OrangePi_STM32_for_ROV repo root>/ros2_bridge/install/setup.bash
+cd <UnderWaterRobotGCS repo root>
 PYTHONPATH=src python3 -m urogcs.app.gui_main --telemetry-source ros2
 ```
 
@@ -80,7 +85,7 @@ PYTHONPATH=src python3 -m urogcs.app.gui_main --telemetry-source ros2
 #### Linux TUI teleop
 
 ```bash
-cd /home/wys/orangepi/UnderWaterRobotGCS
+cd <UnderWaterRobotGCS repo root on the upper computer>
 UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_tui.sh --preflight-only
 UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_tui.sh
 ```

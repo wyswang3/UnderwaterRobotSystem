@@ -32,7 +32,7 @@
 
 重要说明：
 
-- 运行时共享契约真实源在 `/home/wys/orangepi/UnderwaterRobotSystem/shared`
+- 运行时共享契约真实源在工作区内的 `UnderwaterRobotSystem/shared`
 - 集成仓内的 `shared/` 是镜像，不是运行时唯一真源
 
 ## 2. 从最初到当前的升级历史

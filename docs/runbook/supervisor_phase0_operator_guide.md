@@ -22,7 +22,7 @@
 进入集成仓：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+cd <UnderwaterRobotSystem repo root>
 ```
 
 先执行：
@@ -194,7 +194,7 @@ python3 tools/supervisor/phase0_supervisor.py stop   --run-root /tmp/phase0_supe
 并建议先跑：
 
 ```bash
-python3 /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/tools/usb_serial_snapshot.py --json
+python3 <Underwater-robot-navigation repo root>/nav_core/tools/usb_serial_snapshot.py --json
 ```
 
 ### 情况 B：`gcs_bind` 失败

@@ -46,7 +46,7 @@
 进入集成仓：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+cd <UnderwaterRobotSystem repo root>
 ```
 
 推荐直接使用 helper：
@@ -129,7 +129,7 @@ pgrep -af "gcs_server|phase0_supervisor.py|pwm_control_program"
 进入 GCS 仓：
 
 ```bash
-cd /home/wys/orangepi/UnderWaterRobotGCS
+cd <UnderWaterRobotGCS repo root>
 ```
 
 先做 preflight-only：
@@ -163,12 +163,12 @@ UROGCS_ROV_IP=127.0.0.1 bash scripts/run_tui.sh
 
 ```bash
 # 终端 1
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+cd <UnderwaterRobotSystem repo root>
 bash tools/supervisor/run_local_teleop_smoke.sh down
 bash tools/supervisor/run_local_teleop_smoke.sh up
 
 # 终端 2
-cd /home/wys/orangepi/UnderWaterRobotGCS
+cd <UnderWaterRobotGCS repo root>
 UROGCS_ROV_IP=127.0.0.1 bash scripts/run_tui.sh
 ```
 
@@ -181,7 +181,7 @@ UROGCS_ROV_IP=127.0.0.1 bash scripts/run_tui.sh
 如果要把这条链路升级成真实 STM32 输出联调，终端 1 必须改成：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+cd <UnderwaterRobotSystem repo root>
 bash tools/supervisor/run_local_teleop_smoke.sh down
 REAL_PWM=1 bash tools/supervisor/run_local_teleop_smoke.sh up
 ```
@@ -195,7 +195,7 @@ REAL_PWM=1 bash tools/supervisor/run_local_teleop_smoke.sh up
 ## D. 终端 3：GCS GUI 只读观察
 
 ```bash
-cd /home/wys/orangepi/UnderWaterRobotGCS
+cd <UnderWaterRobotGCS repo root>
 UROGCS_ROV_IP=127.0.0.1 bash scripts/run_gui.sh
 ```
 
@@ -219,14 +219,14 @@ UROGCS_ROV_IP=127.0.0.1 bash scripts/run_gui.sh
 优先查看：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV
+cd <OrangePi_STM32_for_ROV repo root>
 ls -t logs/pwm/pwm_log_*.csv | head -n 1
 ```
 
 然后对最新文件做持续观察：
 
 ```bash
-tail -f /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/logs/pwm/<latest_pwm_log>.csv
+tail -f <OrangePi_STM32_for_ROV repo root>/logs/pwm/<latest_pwm_log>.csv
 ```
 
 关键列：
@@ -242,7 +242,7 @@ tail -f /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/logs/pwm
 如果只想本机直接看终端里的 PWM 打印，而不带 teleop 联调，可以单独执行：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/build/bin
+cd <OrangePi_STM32_for_ROV repo root>/build/bin
 ./pwm_control_program --no-teleop --pwm-dummy --pwm-dummy-print
 ```
 
@@ -253,7 +253,7 @@ cd /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/build/bin
 回到终端 1，直接执行：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+cd <UnderwaterRobotSystem repo root>
 bash tools/supervisor/run_local_teleop_smoke.sh down
 ```
 

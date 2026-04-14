@@ -47,7 +47,7 @@
 
 如果你是第一次进入当前项目，推荐按以下顺序阅读：
 
-1. `/home/wys/orangepi/AGENTS.md`
+1. 工作区根目录下的 `AGENTS.md`
 2. `docs/handoff/CODEX_HANDOFF.md`
 3. `docs/handoff/CODEX_NEXT_ACTIONS.md`
 4. `docs/documentation_index.md`
@@ -138,20 +138,28 @@ control_only
 
 如果你是现场操作员，优先看：
 
-1. `/home/wys/orangepi/operator_manual.md`
+1. `docs/runbook/operator_manual.md`
 2. `docs/runbook/gcs_ui_operator_guide.md`
 3. `OrangePi_STM32_for_ROV/pwm_control_program/docs/操作说明.md`
 
 其中：
 
-- `/home/wys/orangepi/operator_manual.md`
-  - 是当前工作区根目录下的便捷操作手册
-  - 适合快速抄命令和理解 GUI / TUI 分工
+- `docs/runbook/operator_manual.md`
+  - 是当前版本化的车端 / 上位机最短操作手册
+  - 适合快速抄命令和理解 OrangePi 侧与上位机侧分工
 - `docs/runbook/gcs_ui_operator_guide.md`
   - 是系统级版本化 runbook
   - 更适合解释 GUI 六卡片和 capability wording
 - `OrangePi_STM32_for_ROV/pwm_control_program/docs/操作说明.md`
   - 更偏手动控制和 PWM / 现场联调流程
+
+如果当前部署在 OrangePi 上，并且项目统一使用 `~/venvs/py311` 虚拟环境，可在仓根直接执行：
+
+```bash
+source ./enter_py311.sh
+```
+
+该脚本会基于当前用户的 `HOME` 解析虚拟环境路径，不依赖固定的 `/home/<user>/...` 写法。
 
 ## 7. 当前导航主链的最新收口点
 

@@ -34,7 +34,7 @@
 ### 设备快照工具
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core
+cd <Underwater-robot-navigation repo root>/nav_core
 python3 tools/usb_serial_snapshot.py --json
 ```
 
@@ -104,13 +104,13 @@ python3 tools/usb_serial_snapshot.py --json
 在接设备前运行：
 
 ```bash
-python3 /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/tools/usb_serial_snapshot.py --json > baseline_before.json
+python3 <Underwater-robot-navigation repo root>/nav_core/tools/usb_serial_snapshot.py --json > baseline_before.json
 ```
 
 ### 步骤 2：接入设备并再次快照
 
 ```bash
-python3 /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/tools/usb_serial_snapshot.py --json > baseline_after.json
+python3 <Underwater-robot-navigation repo root>/nav_core/tools/usb_serial_snapshot.py --json > baseline_after.json
 ```
 
 至少比对：
@@ -146,7 +146,7 @@ python3 /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav
 对异常窗口执行：
 
 ```bash
-python3 /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/tools/merge_robot_timeline.py   --nav-timing /path/to/nav_timing.bin   --nav-state /path/to/nav_state.bin   --control-log /path/to/control_loop_xxx.csv   --telemetry-timeline /path/to/telemetry_timeline_xxx.csv   --telemetry-events /path/to/telemetry_events_xxx.csv   --event reconnecting   --bundle-dir /tmp/reconnect_case01
+python3 <Underwater-robot-navigation repo root>/nav_core/tools/merge_robot_timeline.py   --nav-timing /path/to/nav_timing.bin   --nav-state /path/to/nav_state.bin   --control-log /path/to/control_loop_xxx.csv   --telemetry-timeline /path/to/telemetry_timeline_xxx.csv   --telemetry-events /path/to/telemetry_events_xxx.csv   --event reconnecting   --bundle-dir /tmp/reconnect_case01
 ```
 
 ## 5. 最小验收标准

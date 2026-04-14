@@ -33,7 +33,7 @@
 Linux/POSIX：
 
 ```bash
-cd /home/wys/orangepi/UnderWaterRobotGCS
+cd <UnderWaterRobotGCS repo root>
 ```
 
 Windows/PowerShell：

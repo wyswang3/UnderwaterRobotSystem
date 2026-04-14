@@ -36,8 +36,8 @@
 当前仍是双位置形态：
 
 - 运行时真源：
-  - `/home/wys/orangepi/UnderwaterRobotSystem/shared`
+  - 工作区内的 `UnderwaterRobotSystem/shared`
 - 文档/评审镜像：
-  - `/home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem/shared`
+  - 当前文档仓内的 `shared/`
 
 这仍然是一个过渡方案。后续应收敛为单一真实源仓库或正式子模块。

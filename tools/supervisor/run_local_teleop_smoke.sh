@@ -20,6 +20,7 @@ STOP_TIMEOUT_S="${STOP_TIMEOUT_S:-5.0}"
 ROV_IP="${ROV_IP:-127.0.0.1}"
 STATUS_DELAY_S="${STATUS_DELAY_S:-1.0}"
 REAL_PWM="${REAL_PWM:-0}"
+PROJECT_PY311_VENV="${URO_PROJECT_PY311_VENV:-${HOME}/venvs/py311}"
 
 if [[ -n "${URO_SUPERVISOR_PYTHON_BIN:-}" ]]; then
   if [[ ! -x "${URO_SUPERVISOR_PYTHON_BIN}" ]]; then
@@ -29,6 +30,8 @@ if [[ -n "${URO_SUPERVISOR_PYTHON_BIN:-}" ]]; then
   PYTHON_BIN="${URO_SUPERVISOR_PYTHON_BIN}"
 elif [[ -x "${REPO_ROOT}/.venv/bin/python" ]]; then
   PYTHON_BIN="${REPO_ROOT}/.venv/bin/python"
+elif [[ -x "${PROJECT_PY311_VENV}/bin/python" ]]; then
+  PYTHON_BIN="${PROJECT_PY311_VENV}/bin/python"
 elif command -v python3 >/dev/null 2>&1; then
   PYTHON_BIN="$(command -v python3)"
 elif command -v python >/dev/null 2>&1; then
@@ -70,8 +73,8 @@ Commands:
   restart-real  先停后起真实 PWM，相当于 down + up-real
   status        打印当前 RUN_ROOT 的 human status 和 JSON status
   doctor        打印更短的排障摘要和建议下一步
-  teleop        启动 GCS TUI，自动带入 ROV_IP
-  gui           启动 GCS GUI 只读观察，自动带入 ROV_IP
+  teleop        同机开发捷径：启动本机工作区里的 GCS TUI，自动带入 ROV_IP
+  gui           同机开发捷径：启动本机工作区里的 GCS GUI，自动带入 ROV_IP
   down          停止当前 RUN_ROOT 的最新 run 并导出 bundle --json
   help          显示帮助
 
@@ -85,14 +88,23 @@ Environment overrides:
   ROV_IP           default: 127.0.0.1
   STATUS_DELAY_S   default: 1.0
   REAL_PWM         default: 0
+  URO_PROJECT_PY311_VENV  default: \$HOME/venvs/py311
   URO_SUPERVISOR_PYTHON_BIN  optional explicit interpreter path for supervisor/helper commands
 
 Recommended operator flow:
   1. ${HELPER_CMD_HINT} up-real
   2. ${HELPER_CMD_HINT} doctor
-  3. ROV_IP=<OrangePi_IP> ${HELPER_CMD_HINT} teleop
-  4. ROV_IP=<OrangePi_IP> ${HELPER_CMD_HINT} gui
+  3. 在上位机的 UnderWaterRobotGCS 仓根执行: UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_tui.sh
+  4. 可选只读观察: 在上位机的 UnderWaterRobotGCS 仓根执行: UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_gui.sh
   5. ${HELPER_CMD_HINT} down
+
+Same-workspace development shortcuts:
+  1. ROV_IP=<OrangePi_IP> ${HELPER_CMD_HINT} teleop
+  2. ROV_IP=<OrangePi_IP> ${HELPER_CMD_HINT} gui
+
+Notes:
+  1. teleop/gui 只适用于本机同时检出 UnderWaterRobotGCS 的联调工作区。
+  2. 实际分机部署时，车端命令在 OrangePi 上执行，GCS 命令在上位机的 UnderWaterRobotGCS 仓执行。
 EOF
 }
 
@@ -100,6 +112,8 @@ ensure_gcs_launcher() {
   local launcher="$1"
   if [[ ! -f "${launcher}" ]]; then
     echo "[ERR] GCS launcher not found: ${launcher}"
+    echo "[INFO] teleop/gui shortcuts only work when UnderWaterRobotGCS is checked out beside this repo on the same machine"
+    echo "[INFO] for split-host deployment, run GCS from the upper computer's UnderWaterRobotGCS repo"
     return 1
   fi
 }
@@ -137,11 +151,15 @@ print_next_steps() {
   cat <<EOF
 
 [NEXT] Terminal 2:
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
-ROV_IP=${ROV_IP} ${HELPER_CMD_HINT} teleop
+在上位机的 UnderWaterRobotGCS 仓根执行:
+UROGCS_ROV_IP=${ROV_IP} bash scripts/run_tui.sh
 
 [NEXT] Terminal 3 (optional read-only observer):
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+在上位机的 UnderWaterRobotGCS 仓根执行:
+UROGCS_ROV_IP=${ROV_IP} bash scripts/run_gui.sh
+
+[DEV] Same-workspace shortcuts on a machine that also has UnderWaterRobotGCS:
+ROV_IP=${ROV_IP} ${HELPER_CMD_HINT} teleop
 ROV_IP=${ROV_IP} ${HELPER_CMD_HINT} gui
 EOF
 }
@@ -287,7 +305,8 @@ if not overall_ok:
     print(f"[NEXT] recover with: {helper} restart")
     print(f"[NEXT] if it still fails, stop and collect logs with: {helper} down")
 else:
-    print(f"[NEXT] open TUI with: ROV_IP={rov_ip} {helper} teleop")
+    print(f"[NEXT] upper computer TUI: UROGCS_ROV_IP={rov_ip} bash scripts/run_tui.sh")
+    print(f"[DEV] same-workspace shortcut: ROV_IP={rov_ip} {helper} teleop")
 if motion_info.get("state") not in {"ready", "not_enabled_for_capability"}:
     print("[CHECK] motion info is not ready; if nav preview is expected, inspect nav side and GCS Motion Info/Fault Summary.")
 PY
@@ -297,7 +316,7 @@ run_teleop() {
   ensure_gcs_launcher "${GCS_TUI_LAUNCHER}"
   cd "${GCS_ROOT}"
   echo ""
-  echo "[INFO] Launching GCS TUI with UROGCS_ROV_IP=${ROV_IP}"
+  echo "[INFO] Launching GCS TUI via same-workspace dev shortcut with UROGCS_ROV_IP=${ROV_IP}"
   UROGCS_ROV_IP="${ROV_IP}" bash "${GCS_TUI_LAUNCHER}"
 }
 
@@ -305,7 +324,7 @@ run_gui() {
   ensure_gcs_launcher "${GCS_GUI_LAUNCHER}"
   cd "${GCS_ROOT}"
   echo ""
-  echo "[INFO] Launching GCS GUI with UROGCS_ROV_IP=${ROV_IP}"
+  echo "[INFO] Launching GCS GUI via same-workspace dev shortcut with UROGCS_ROV_IP=${ROV_IP}"
   UROGCS_ROV_IP="${ROV_IP}" bash "${GCS_GUI_LAUNCHER}"
 }
 

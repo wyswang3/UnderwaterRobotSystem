@@ -58,7 +58,7 @@
 进入集成仓后，先固定按以下顺序判断串口与 profile：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+cd <UnderwaterRobotSystem repo root>
 
 python3 tools/supervisor/phase0_supervisor.py device-scan --sample-policy off --json
 python3 tools/supervisor/phase0_supervisor.py startup-profiles --json
@@ -105,7 +105,7 @@ python3 tools/supervisor/phase0_supervisor.py device-scan --sample-policy auto -
 进入集成仓：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+cd <UnderwaterRobotSystem repo root>
 ```
 
 当前默认先做 `control_only` preflight：
@@ -228,7 +228,7 @@ python3 tools/supervisor/phase0_supervisor.py start   --profile bench   --startu
 1. 先运行：
 
 ```bash
-python3 /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/tools/usb_serial_snapshot.py --json
+python3 <Underwater-robot-navigation repo root>/nav_core/tools/usb_serial_snapshot.py --json
 python3 tools/supervisor/phase0_supervisor.py device-scan --sample-policy off --json
 python3 tools/supervisor/phase0_supervisor.py startup-profiles --json
 ```
@@ -276,7 +276,7 @@ python3 tools/supervisor/phase0_supervisor.py startup-profiles --json
 ```bash
 ls -l /dev/serial/by-id
 ls -l /dev/ttyUSB* /dev/ttyACM*
-python3 /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/tools/usb_serial_snapshot.py --json
+python3 <Underwater-robot-navigation repo root>/nav_core/tools/usb_serial_snapshot.py --json
 python3 tools/supervisor/phase0_supervisor.py device-scan --sample-policy off --json
 ```
 
@@ -311,7 +311,7 @@ python3 tools/supervisor/phase0_supervisor.py device-scan --sample-policy off --
 
 ```bash
 ls -l /dev/serial/by-id
-python3 /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/tools/usb_serial_snapshot.py --json
+python3 <Underwater-robot-navigation repo root>/nav_core/tools/usb_serial_snapshot.py --json
 python3 tools/supervisor/phase0_supervisor.py device-scan --sample-policy off --json
 ```
 
@@ -386,7 +386,7 @@ python3 tools/supervisor/phase0_supervisor.py device-scan --sample-policy auto -
 先用 helper 跑本机 `control_only` smoke：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+cd <UnderwaterRobotSystem repo root>
 bash tools/supervisor/run_local_teleop_smoke.sh up
 bash tools/supervisor/run_local_teleop_smoke.sh status
 bash tools/supervisor/run_local_teleop_smoke.sh down
@@ -400,28 +400,28 @@ bash tools/supervisor/run_local_teleop_smoke.sh down
 - 如果只想本机看 PWM 计算链本身，不带 teleop，可直接执行：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/OrangePi_STM32_for_ROV/build/bin
+cd <OrangePi_STM32_for_ROV repo root>/build/bin
 ./pwm_control_program --no-teleop --pwm-dummy --pwm-dummy-print
 ```
 
 如果需要逐条查看原始命令，再按下面的手动顺序执行：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+cd <UnderwaterRobotSystem repo root>
 
-python3 /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core/tools/usb_serial_snapshot.py --json
+python3 <Underwater-robot-navigation repo root>/nav_core/tools/usb_serial_snapshot.py --json
 python3 tools/supervisor/phase0_supervisor.py device-scan --sample-policy off --json
 python3 tools/supervisor/phase0_supervisor.py startup-profiles --json
 python3 tools/supervisor/phase0_supervisor.py preflight --profile control_only --startup-profile auto --run-root /tmp/phase0_supervisor_control_only
 python3 tools/supervisor/phase0_supervisor.py start --profile control_only --startup-profile auto --detach --run-root /tmp/phase0_supervisor_control_only
 python3 tools/supervisor/phase0_supervisor.py status --run-root /tmp/phase0_supervisor_control_only --json
 
-cd /home/wys/orangepi/UnderWaterRobotGCS
+cd <UnderWaterRobotGCS repo root>
 UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_tui.sh --preflight-only
 UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_tui.sh
 UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_gui.sh
 
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+cd <UnderwaterRobotSystem repo root>
 python3 tools/supervisor/phase0_supervisor.py stop --run-root /tmp/phase0_supervisor_control_only --timeout-s 5.0
 python3 tools/supervisor/phase0_supervisor.py bundle --run-root /tmp/phase0_supervisor_control_only --json
 ```
@@ -617,7 +617,7 @@ python3 tools/supervisor/phase0_supervisor.py bundle --run-root /tmp/phase0_supe
 默认导出最近一次 run：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+cd <UnderwaterRobotSystem repo root>
 python3 tools/supervisor/phase0_supervisor.py bundle   --run-root /tmp/phase0_supervisor_bench_smoke
 ```
 
@@ -663,7 +663,7 @@ python3 tools/supervisor/phase0_supervisor.py bundle   --run-dir /path/to/run_di
 如果 `bundle_summary.json` 里的 `merge_robot_timeline.ready=true`，再继续用 `command_hint` 或手动执行：
 
 ```bash
-cd /home/wys/orangepi/UnderwaterRobotSystem/Underwater-robot-navigation/nav_core
+cd <Underwater-robot-navigation repo root>/nav_core
 python3 tools/merge_robot_timeline.py   --nav-timing /path/to/nav_timing.bin   --nav-state /path/to/nav_state.bin   --control-log /path/to/control_loop_xxx.csv   --telemetry-timeline /path/to/telemetry_timeline_xxx.csv   --telemetry-events /path/to/telemetry_events_xxx.csv   --bundle-dir /tmp/replay_bundle_case01
 ```
 
