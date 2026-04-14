@@ -18,6 +18,20 @@
 - Linux 是当前 GUI/TUI 都能稳定验证的主路径。
 - Windows 当前提供 GUI preview 与最小诊断路径，但还没有完成现场交付级验证。
 
+GCS 启动脚本当前固定遵循以下解释器优先级：
+
+1. `UROGCS_PYTHON_BIN`
+2. `UnderWaterRobotGCS/.venv/bin/python`
+3. `python3`
+4. `python`
+
+如果需要手动进入环境，可先执行：
+
+```bash
+cd /home/wys/orangepi/UnderWaterRobotGCS
+source scripts/enter_gcs_env.sh
+```
+
 ## 1. 当前推荐启动顺序
 
 ### ROV 侧
@@ -39,6 +53,12 @@
 ```bash
 cd /home/wys/orangepi/UnderWaterRobotGCS
 UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_gui.sh
+```
+
+如需显式打开 GCS 会话调试日志，只允许按需追加：
+
+```bash
+UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_gui.sh --debug-session
 ```
 
 #### Linux GUI ROS2 preview（只读）
@@ -65,9 +85,16 @@ UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_tui.sh --preflight-only
 UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_tui.sh
 ```
 
+如需显式打开 GCS 会话调试日志，只允许按需追加：
+
+```bash
+UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_tui.sh --debug-session
+```
+
 说明：
 
 - 键盘 teleop 当前按产品安全约束只接受一个运动键；组合运动键会被上位机忽略。
+- 会话调试默认关闭；只有显式传 `--debug-session` 或设置 `UROGCS_SESSION_DEBUG=1` 时才输出握手 / UDP 调试日志。
 - 这条约束的原因不是 UI 限制，而是为了避免组合运动带来的运动学歧义和瞬时电池/推进器负载尖峰。
 - 操作建议是“先松开当前运动键，再按下下一个运动键”，不要把 `W/A/Q/H/...` 这类运动键同时按住。
 
@@ -149,6 +176,7 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 - `Control Only` 不代表系统失败，只表示当前不宣称运动反馈。
 - `Attitude Feedback` 只代表 IMU-only 的姿态反馈，不代表完整导航。
 - `Relative Nav` 只代表 IMU + DVL 的速度与短时相对运动，不代表绝对定位。
+- 只有 runtime nav 当前 `fresh + valid` 时，GUI/TUI 才应把 `Motion Info` 升级成 `Attitude Feedback` 或 `Relative Nav`；单纯设备在线但导航输出失效时，界面应继续保守显示 `Control Only`。
 
 ### Control
 

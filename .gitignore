@@ -18,7 +18,20 @@ reports/supervisor_runs/
 __pycache__/
 *.pyc
 *.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+.env
 
 # local test / runtime scratch
 *.log
 *.bin
+*.pid
+*.bak
+*.orig
+*.rej
+.coverage
+.coverage.*
+htmlcov/
+.DS_Store

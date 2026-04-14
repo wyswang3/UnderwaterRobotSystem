@@ -76,6 +76,8 @@
 - `docs/runbook/local_debug_and_field_startup_guide.md`
 - `docs/runbook/operator_manual.md`
   - 车端控制侧 / 上位机最短启动命令卡，以及 IMU / Volt32 现场识别与解析排查口径
+- `docs/runbook/香橙派_当前实验_操作员使用说明.md`
+  - 面向现场操作员的中文顺序卡，覆盖开机、脚本赋权、Python/虚拟环境、车端启动和最短排障
 - `docs/runbook/local_teleop_smoke_checklist.md`
   - 本机 `control_only` helper、最短 teleop/PWM 命令卡、14550 端口占用排查与 PWM 日志查看入口
 - `docs/runbook/field_validation_checklist.md`

@@ -5,6 +5,10 @@
 - 状态：Authoritative
 - 说明：面向当前阶段操作员与联调人员的最短命令卡；覆盖车端控制侧快速启动、上位机快速启动，以及 IMU/Volt32 现场识别与解析排查口径。
 
+补充入口：
+
+- 面向现场操作员的中文顺序卡：`docs/runbook/香橙派_当前实验_操作员使用说明.md`
+
 ## 适用范围
 
 本文档适用于当前默认主路径：
@@ -22,7 +26,10 @@
 重要澄清：
 
 - `bash tools/supervisor/run_local_teleop_smoke.sh up` 默认仍是 dummy backend。
-- 如果不显式加 `REAL_PWM=1` 或 `phase0_supervisor.py ... --real-pwm`，TUI 指令即使已经到达 `pwm_control_program`，也不会真正发包到 STM32。
+- `bash tools/supervisor/run_local_teleop_smoke.sh up-real` 才是当前推荐的真实 STM32 输出入口。
+- 如果不显式使用 `up-real`、`restart-real` 或 `phase0_supervisor.py ... --real-pwm`，TUI 指令即使已经到达 `pwm_control_program`，也不会真正发包到 STM32。
+- GCS 启动脚本当前支持显式解释器覆盖：`UROGCS_PYTHON_BIN=/abs/path/python3`
+- supervisor helper 当前支持显式解释器覆盖：`URO_SUPERVISOR_PYTHON_BIN=/abs/path/python3`
 
 ## 1. 当前默认口径
 
@@ -36,6 +43,22 @@
 
 ## 2. 车端控制侧快速启动
 
+### 2.0 Python 与环境脚本
+
+当前工作区实测 Python 版本是 `Python 3.11.11`。
+
+如果要手动进入环境，执行：
+
+```bash
+cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+source tools/supervisor/enter_supervisor_env.sh
+
+cd /home/wys/orangepi/UnderWaterRobotGCS
+source scripts/enter_gcs_env.sh
+```
+
+这两个脚本会优先使用仓库 `.venv/bin/python`；如果 `.venv` 不存在，就继续使用当前 `python3`。
+
 ### 2.1 推荐一键方式
 
 进入集成仓：
@@ -44,7 +67,27 @@
 cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
 ```
 
-直接执行：
+当前推荐让操作员只记下面 6 个命令：
+
+```bash
+cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+
+bash tools/supervisor/run_local_teleop_smoke.sh up
+bash tools/supervisor/run_local_teleop_smoke.sh up-real
+bash tools/supervisor/run_local_teleop_smoke.sh doctor
+ROV_IP=<OrangePi_IP> bash tools/supervisor/run_local_teleop_smoke.sh teleop
+ROV_IP=<OrangePi_IP> bash tools/supervisor/run_local_teleop_smoke.sh gui
+bash tools/supervisor/run_local_teleop_smoke.sh down
+```
+
+其中：
+
+1. `up` 仍是 dummy backend。
+2. `up-real` 是推荐的真实 PWM 启动方式，不再要求操作员记 `REAL_PWM=1`。
+3. `doctor` 会给出更短的状态判断和建议下一步。
+4. `teleop` / `gui` 会自动切到 GCS 仓并带入 `ROV_IP`。
+
+如果只是本机联调，直接执行：
 
 ```bash
 bash tools/supervisor/run_local_teleop_smoke.sh up
@@ -53,7 +96,7 @@ bash tools/supervisor/run_local_teleop_smoke.sh up
 如果要做真实 STM32 输出联调，必须显式改成：
 
 ```bash
-REAL_PWM=1 bash tools/supervisor/run_local_teleop_smoke.sh up
+bash tools/supervisor/run_local_teleop_smoke.sh up-real
 ```
 
 这条命令会自动完成：
@@ -109,8 +152,16 @@ python3 tools/supervisor/phase0_supervisor.py status \
 ```bash
 cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
 
+bash tools/supervisor/run_local_teleop_smoke.sh doctor
 bash tools/supervisor/run_local_teleop_smoke.sh status
 bash tools/supervisor/run_local_teleop_smoke.sh down
+```
+
+如果要重启并保留当前操作语义，优先直接执行：
+
+```bash
+bash tools/supervisor/run_local_teleop_smoke.sh restart
+bash tools/supervisor/run_local_teleop_smoke.sh restart-real
 ```
 
 若使用原始命令：
@@ -130,6 +181,7 @@ python3 tools/supervisor/phase0_supervisor.py bundle \
 
 ```bash
 cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+bash tools/supervisor/run_local_teleop_smoke.sh doctor
 bash tools/supervisor/run_local_teleop_smoke.sh down
 pgrep -af "gcs_server|phase0_supervisor.py|pwm_control_program"
 ```
@@ -145,27 +197,26 @@ pgrep -af "gcs_server|phase0_supervisor.py|pwm_control_program"
 
 ### 3.1 TUI 主路径
 
-本机联调：
+推荐入口已经收进 helper：
 
 ```bash
-cd /home/wys/orangepi/UnderWaterRobotGCS
-UROGCS_ROV_IP=127.0.0.1 bash scripts/run_tui.sh --preflight-only
-UROGCS_ROV_IP=127.0.0.1 bash scripts/run_tui.sh
+cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+ROV_IP=127.0.0.1 bash tools/supervisor/run_local_teleop_smoke.sh teleop
 ```
 
 实机联调：
 
 ```bash
-cd /home/wys/orangepi/UnderWaterRobotGCS
-UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_tui.sh --preflight-only
-UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_tui.sh
+cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+ROV_IP=<OrangePi_IP> bash tools/supervisor/run_local_teleop_smoke.sh teleop
 ```
 
 当前操作要求：
 
-1. 先做 `--preflight-only`。
+1. `teleop` 内部仍会先做 GCS preflight。
 2. `preflight` 没过时，不要继续进入 TUI。
 3. TUI 才是当前完整键盘 teleop 基线。
+4. 如需手动逐步检查，仍可直接进入 `UnderWaterRobotGCS` 执行 `bash scripts/run_tui.sh --preflight-only`。
 
 ### 3.1.1 怎么确认是不是已经在打真实 STM32
 
@@ -193,8 +244,8 @@ python3 tools/supervisor/phase0_supervisor.py status --json
 GUI 只做状态预览，不替代 TUI：
 
 ```bash
-cd /home/wys/orangepi/UnderWaterRobotGCS
-UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_gui.sh
+cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+ROV_IP=<OrangePi_IP> bash tools/supervisor/run_local_teleop_smoke.sh gui
 ```
 
 当前 GUI 重点只看：
@@ -212,30 +263,28 @@ UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_gui.sh
 
 ```bash
 cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
-bash tools/supervisor/run_local_teleop_smoke.sh down
-bash tools/supervisor/run_local_teleop_smoke.sh up
+bash tools/supervisor/run_local_teleop_smoke.sh restart
 ```
 
 如果是实机放行前的真实输出联调，终端 1 必须改成：
 
 ```bash
 cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
-bash tools/supervisor/run_local_teleop_smoke.sh down
-REAL_PWM=1 bash tools/supervisor/run_local_teleop_smoke.sh up
+bash tools/supervisor/run_local_teleop_smoke.sh restart-real
 ```
 
 终端 2：
 
 ```bash
-cd /home/wys/orangepi/UnderWaterRobotGCS
-UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_tui.sh
+cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+ROV_IP=<OrangePi_IP> bash tools/supervisor/run_local_teleop_smoke.sh teleop
 ```
 
 终端 3（可选）：
 
 ```bash
-cd /home/wys/orangepi/UnderWaterRobotGCS
-UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_gui.sh
+cd /home/wys/orangepi/UnderwaterRobotSystem/UnderwaterRobotSystem
+ROV_IP=<OrangePi_IP> bash tools/supervisor/run_local_teleop_smoke.sh gui
 ```
 
 ## 4. 带导航 Preview 的最小顺序
