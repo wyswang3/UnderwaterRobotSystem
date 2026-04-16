@@ -203,8 +203,8 @@
 
 1. UI 仍以 TUI 为主，阅读门槛较高。
    - 操作员需要理解 `[OP] / [AUTH] / [NAV] / [CMD]` 等文本语义。
-2. GUI 尚未产品化。
-   - `UnderWaterRobotGCS/src/urogcs/app/gui_main.py` 当前为空文件。
+2. GUI 已有首页总览与只读观察入口，但还没有达到完整交付级产品化。
+   - 当前已有 `UnderWaterRobotGCS/src/urogcs/app/gui_main.py`、overview dashboard 和 ROS2 read-only preview source。
 3. 现场工作流仍偏开发者导向。
    - 常见路径仍是 `SSH + 多进程启动 + 终端/TUI`。
 4. 诊断信息已经比早期强很多，但仍然以 fault code 和文本摘要为主。
@@ -230,9 +230,9 @@
 这轮审查发现几个需要明确记录的点：
 
 1. 运行时共享契约真实源在根级 `shared/`，不是集成仓镜像。
-2. 旧版 `docs/archive/root/system_overview_legacy.md` 仍带有较强的规划口径。
+2. 旧版 `docs/history/system_overview_legacy.md` 仍带有较强的规划口径。
    - 例如 `control_algorithms/` 作为未来层的表述不能直接当成当前主线事实。
-3. 旧版 `docs/architecture/project_upgrade_master_plan.md` 记录的是早期 P0/P1 快照。
+3. 旧版 `docs/history/project_upgrade_master_plan.md` 记录的是早期 P0/P1 快照。
    - 后续升级应以新的 `upgrade_strategy.md` 为准。
 4. `UnderWaterRobotGCS/docs/operator_guide.md` 更适合作为历史上手说明。
    - 当前跨仓一致的操作解释以系统级 `gcs_ui_operator_guide.md` 为准。

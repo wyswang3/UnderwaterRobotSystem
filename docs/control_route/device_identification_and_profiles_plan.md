@@ -43,7 +43,7 @@
    - `AngX/AngY/AngZ`
 2. `offline_nav` 样本的时间间隔约 `10.2ms`，符合 `100Hz` 级别采样。
 3. `TemperatureC` 列在当前样本中存在但全部为空，说明它可以作为辅助字段，不能作为强规则。
-4. 结合 `docs/protocols/imu_witmotion_modbus.md` 与 `imu_driver_wit.cpp`，当前 runtime 主链使用的是 `WIT Modbus-RTU + 轮询`。
+4. 结合 `Underwater-robot-navigation/docs/imu_witmotion_modbus.md` 与 `imu_driver_wit.cpp`，当前 runtime 主链使用的是 `WIT Modbus-RTU + 轮询`。
 5. 因此 IMU 的被动串口采样并不可靠：没有主动轮询时，IMU 可能根本不吐字节。
 
 结论：

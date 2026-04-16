@@ -675,7 +675,7 @@ python3 tools/merge_robot_timeline.py   --nav-timing /path/to/nav_timing.bin   -
 
 更完整的 bundle 目录与规则说明，统一看：
 
-- `docs/runbook/incident_bundle_guide.md`
+- `docs/validation/incident_bundle_guide.md`
 
 如果 bundle 已经导出、只需要压缩归档当前样本，可执行：
 

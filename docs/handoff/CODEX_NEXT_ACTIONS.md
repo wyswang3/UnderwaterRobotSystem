@@ -93,7 +93,7 @@
 2. `phase0_supervisor.py bundle`
 3. 固定 bundle 目录与 `bundle_summary.json` / `bundle_summary.txt`
 4. required / optional / incomplete 规则
-5. `docs/runbook/incident_bundle_guide.md`
+5. `docs/validation/incident_bundle_guide.md`
 6. mock 缺 optional、synthetic 成功采集、required 缺失三类最小验证
 
 因此下一轮不再把“incident bundle 最小自动整合”当成待开始事项，而是继续做外围闭环深化。
@@ -406,7 +406,7 @@
 
 当前最高优先级任务是：
 
-- 先把 `docs/runbook/local_debug_and_field_startup_guide.md` 与 `docs/runbook/incident_bundle_guide.md` 作为统一操作基线
+- 先把 `docs/operator/local_debug_and_field_startup_guide.md` 与 `docs/validation/incident_bundle_guide.md` 作为统一操作基线
 - 继续优先推进外围模块的故障导出、问题反馈和 replay 前置检查收口
 - 导航侧优先补日志、报错检查、状态暴露与调试能力
 - 不先大改 ESKF 结构和核心融合逻辑
@@ -439,7 +439,7 @@
 
 建议按以下顺序推进：
 
-1. 先维护和使用 `docs/runbook/local_debug_and_field_startup_guide.md` 与 `docs/runbook/incident_bundle_guide.md`
+1. 先维护和使用 `docs/operator/local_debug_and_field_startup_guide.md` 与 `docs/validation/incident_bundle_guide.md`
    - 统一本地调试
    - 统一板上 bring-up / field startup 前检查
    - 统一日志导出和 incident bundle 入口
@@ -477,14 +477,14 @@
    - `gcs_server`
    但必须满足：一次只动一个核心模块、一次只落一个小点、先审查再改、改后立刻做最小回归。
 4. 允许继续更新：
-   - `docs/architecture/logging_full_chain_audit.md`
-   - `docs/interfaces/logging_contract.md`
-   - `docs/runbook/local_debug_and_field_startup_guide.md`
-   - `docs/runbook/incident_bundle_guide.md`
+   - `docs/validation/logging_full_chain_audit.md`
+   - `docs/contracts/logging_contract.md`
+   - `docs/operator/local_debug_and_field_startup_guide.md`
+   - `docs/validation/incident_bundle_guide.md`
    - `docs/handoff/CODEX_HANDOFF.md`
    - `docs/handoff/CODEX_PROGRESS_LOG.md`
    - `docs/handoff/CODEX_NEXT_ACTIONS.md`
-   - `docs/productization/nightly_upgrade_progress.md`
+   - `docs/history/archive_index.md`
 
 ## 4. 本轮禁止事项
 
@@ -509,10 +509,10 @@
 1. `/home/wys/orangepi/AGENTS.md`
 2. `docs/handoff/CODEX_HANDOFF.md`
 3. `docs/handoff/CODEX_NEXT_ACTIONS.md`
-4. `docs/runbook/local_debug_and_field_startup_guide.md`
-5. `docs/runbook/incident_bundle_guide.md`
-6. `docs/architecture/logging_full_chain_audit.md`
-7. `docs/interfaces/logging_contract.md`
+4. `docs/operator/local_debug_and_field_startup_guide.md`
+5. `docs/validation/incident_bundle_guide.md`
+6. `docs/validation/logging_full_chain_audit.md`
+7. `docs/contracts/logging_contract.md`
 8. `docs/project_memory.md`
 9. `docs/documentation_index.md`
 
@@ -551,10 +551,10 @@
    - `/home/wys/orangepi/AGENTS.md`
    - `docs/handoff/CODEX_HANDOFF.md`
    - `docs/handoff/CODEX_NEXT_ACTIONS.md`
-   - `docs/runbook/local_debug_and_field_startup_guide.md`
-   - `docs/runbook/incident_bundle_guide.md`
-   - `docs/architecture/logging_full_chain_audit.md`
-   - `docs/interfaces/logging_contract.md`
+   - `docs/operator/local_debug_and_field_startup_guide.md`
+   - `docs/validation/incident_bundle_guide.md`
+   - `docs/validation/logging_full_chain_audit.md`
+   - `docs/contracts/logging_contract.md`
 2. 先确认三个仓的本地工作树状态。
 3. 先判断这轮是外围模块工作，还是必须进入核心 C++ 主链。
 4. 如果是外围模块，优先做 supervisor / bundle / diagnostics / runbook。

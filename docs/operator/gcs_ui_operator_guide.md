@@ -264,4 +264,4 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 - ROS2 preview 仍是 read-only，不应被描述为完整 ROS2 UI backend。
 - Windows 路径虽然已有 `run_gui.ps1`，但还没有完成真实现场验证。
 - `pyproject.toml` 仍为空，当前不是 packaged installer 基线。
-- 如需更细的恢复动作，请继续看 `customer_fault_recovery_guide.md`。
+- 如需更细的恢复动作，直接按 `operator_manual.md` 里的“卡住时的最短恢复顺序”执行，并结合 GUI/TUI 当前远端状态判断。

@@ -13,20 +13,20 @@
 证据来源主要包括：
 
 - `AGENTS.md`
-- `docs/architecture/upgrade_strategy.md`
-- `docs/architecture/system_main_dataflow.md`
-- `docs/interfaces/time_contract.md`
-- `docs/interfaces/control_intent_contract.md`
-- `docs/interfaces/nav_state_contract.md`
-- `docs/interfaces/nav_view_contract.md`
-- `docs/interfaces/telemetry_ui_contract.md`
+- `docs/upgrade_strategy.md`
+- `docs/baseline/system_main_dataflow.md`
+- `docs/contracts/time_contract.md`
+- `docs/contracts/control_intent_contract.md`
+- `docs/contracts/nav_state_contract.md`
+- `docs/contracts/nav_view_contract.md`
+- `docs/contracts/telemetry_ui_contract.md`
 - `shared/msg/*`
 - `OrangePi_STM32_for_ROV/gateway/apps/gcs_server.cpp`
 - `OrangePi_STM32_for_ROV/gateway/apps/nav_viewd.cpp`
 - `OrangePi_STM32_for_ROV/pwm_control_program/*`
 - `Underwater-robot-navigation/nav_core/*`
 - `UnderWaterRobotGCS/src/urogcs/*`
-- `OrangePi_STM32_for_ROV/docs/architecture/ros2_bridge_plan.md`
+- `OrangePi_STM32_for_ROV/docs/ros2_bridge_plan.md`
 
 评估目标不是把项目“整体 ROS2 化”，而是识别：
 
@@ -375,12 +375,9 @@
 
 ## 9. 当前文档漂移与风险提示
 
-当前至少有两处文档与代码不完全一致，做 ROS2 方案时不能忽略：
+当前至少还有一处外仓文档与代码不完全一致，做 ROS2 方案时不能忽略：
 
-1. `docs/interfaces/telemetry_ui_contract.md` 仍写着 `src/urogcs/app/gui_main.py` 为空。
-   - 但当前 GCS 仓已经存在可运行的 PySide6 GUI 入口。
-   - 这不影响 ROS2 边界结论，但说明 UI 现状比旧文档更前进。
-2. `pwm_control_program/docs/gcs/gcs_control_and_telemetry_protocol.md` 仍以较早期 `TelemetryFrameV1` 逻辑模型表述为主。
+1. `OrangePi_STM32_for_ROV/docs/comm_gcs_demo.md` 仍保留较早期协议表述，需要继续对齐当前权威 telemetry 语义。
    - 当前系统级权威状态基线已经是 `TelemetryFrameV2` + `telemetry_ui_contract.md`。
    - 后续若做 ROS2 消息设计，应以 `shared/msg/telemetry_frame_v2.hpp` 为真源，不应以旧 V1 描述做消息来源。
 

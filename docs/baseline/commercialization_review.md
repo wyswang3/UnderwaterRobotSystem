@@ -20,11 +20,11 @@
 - `tools/supervisor/device_identification.py`
 - `tools/supervisor/device_profiles.py`
 - `tools/supervisor/incident_bundle.py`
-- `docs/runbook/local_debug_and_field_startup_guide.md`
-- `docs/runbook/incident_bundle_guide.md`
-- `docs/runbook/gcs_ui_operator_guide.md`
-- `docs/architecture/logging_full_chain_audit.md`
-- `docs/interfaces/logging_contract.md`
+- `docs/operator/local_debug_and_field_startup_guide.md`
+- `docs/validation/incident_bundle_guide.md`
+- `docs/operator/gcs_ui_operator_guide.md`
+- `docs/validation/logging_full_chain_audit.md`
+- `docs/contracts/logging_contract.md`
 - `docs/handoff/CODEX_HANDOFF.md`
 - `docs/handoff/CODEX_NEXT_ACTIONS.md`
 - `UnderWaterRobotGCS` 当前 GUI / TUI / preflight / launcher 代码
@@ -35,6 +35,10 @@
 - 导航融合或控制算法扩展
 - USBL 与复杂 profile 扩面
 - ROS2 写回或新的 authority 路径
+
+说明：
+
+- 原 `commercial_upgrade_roadmap.md` 的主题划分、推荐顺序和交付收口建议，已在本文件和 `upgrade_strategy.md` 中合并吸收，不再单独保留一份重复路线图。
 
 ## 2. 当前项目成熟度评估
 

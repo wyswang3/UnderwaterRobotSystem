@@ -2,8 +2,8 @@
 
 ## 文档状态
 
-- 状态：Authoritative
-- 说明：记录当前阶段最新一轮的产品化 / 文档化进展摘要。
+- 状态：Archived
+- 说明：阶段性夜间进度快照；当前持续交接已由 `CODEX_PROGRESS_LOG.md` 接管，本文件仅保留历史背景。
 
 ## 日期
 
@@ -166,7 +166,7 @@
    - footer 明确 TUI 是 teleop 主入口、GUI 只是只读 observer
 6. GCS preflight 的 operator 提示已同步改成当前默认顺序，不再继续打印旧的“先起导航再起控制”。
 7. 新增权威基线：
-   - `docs/architecture/teleop_primary_operator_lane.md`
+   - `docs/teleop_primary_operator_lane.md`
 
 ### 本轮验证
 
@@ -213,7 +213,7 @@
    - `navigation_requirement`
    - `runtime_level_hint`
 5. 新增权威基线：
-   - `docs/architecture/minimum_viable_runtime_profiles.md`
+   - `docs/minimum_viable_runtime_profiles.md`
 6. runbook 已明确：
    - 当前默认推荐运行等级是 `control_only`
    - 没有导航时如何执行 `preflight -> start -> status -> stop -> bundle`
@@ -343,12 +343,12 @@
 
 ### 本轮文档更新
 
-- 新增：`docs/architecture/commercialization_review.md`
+- 新增：`docs/commercialization_review.md`
 - 更新：
   - `docs/documentation_index.md`
-  - `docs/handoff/CODEX_HANDOFF.md`
-  - `docs/handoff/CODEX_NEXT_ACTIONS.md`
-  - `docs/handoff/CODEX_PROGRESS_LOG.md`
+  - `docs/CODEX_HANDOFF.md`
+  - `docs/CODEX_NEXT_ACTIONS.md`
+  - `docs/CODEX_PROGRESS_LOG.md`
 
 ## 历史完成项（截至 2026-03-25）
 
@@ -403,7 +403,7 @@
 
 本轮新增：
 
-- `docs/runbook/supervisor_phase0_operator_guide.md`
+- `docs/supervisor_phase0_operator_guide.md`
 
 当前已经说明：
 
@@ -572,7 +572,7 @@
 
 ### 已落地
 
-1. 新增 `docs/runbook/local_debug_and_field_startup_guide.md`，统一说明：
+1. 新增 `docs/local_debug_and_field_startup_guide.md`，统一说明：
    - mock / preflight / bench safe smoke
    - supervisor 运行文件与 child logs 查看顺序
    - 无设备时的最小验证路径
@@ -626,7 +626,7 @@
    - required：supervisor 自己的 4 个 run files
    - optional：child logs、结构化低频事件、高频 `bin/csv`
    - 缺失时 bundle 仍导出，但会明确标成 incomplete
-5. 新增 `docs/runbook/incident_bundle_guide.md`，并更新 `local_debug_and_field_startup_guide.md`，把 bundle 导出、查看顺序和问题反馈路径写清楚。
+5. 新增 `docs/incident_bundle_guide.md`，并更新 `local_debug_and_field_startup_guide.md`，把 bundle 导出、查看顺序和问题反馈路径写清楚。
 
 ### 本轮验证
 
@@ -757,4 +757,3 @@
 1. 在真实 bench 上补采静态身份快照，用于继续收紧 IMU / Volt32 / DVL 白名单。
 2. 在真实 bench 条件下分别验证 `imu_only` 与 `imu_dvl` 的 profile 推荐和 gate。
 3. 若继续推进，只在 supervisor / preflight / runbook 侧做轻量收口，不提前改核心 authority 主链。
-

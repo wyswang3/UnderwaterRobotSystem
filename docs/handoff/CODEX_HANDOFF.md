@@ -68,10 +68,10 @@
 #### 文档与工作区整理
 
 1. 新增并版本化：
-   - `docs/runbook/香橙派_当前实验_操作员使用说明.md`
+   - `docs/operator/香橙派_当前实验_操作员使用说明.md`
 2. 已更新：
-   - `docs/runbook/operator_manual.md`
-   - `docs/runbook/gcs_ui_operator_guide.md`
+   - `docs/operator_manual.md`
+   - `docs/operator/gcs_ui_operator_guide.md`
    - `docs/documentation_index.md`
 3. `.gitignore` 已补充：
    - `.venv`
@@ -300,7 +300,7 @@ GCS / 操作员观察面：
    - 不先大改 ESKF 结构和核心融合逻辑
    - 等实地实验条件具备后，再集中优化导航算法本身
 6. 新增必须维护的操作文档：
-   - `docs/runbook/local_debug_and_field_startup_guide.md`
+   - `docs/operator/local_debug_and_field_startup_guide.md`
 7. 后续只要涉及核心 C++ 主链改动，收口时必须额外说明：
    - 为什么必须改这个点
    - 为什么这轮只改这个点
@@ -361,7 +361,7 @@ GCS / 操作员观察面：
    - 零字节 `child_logs` 被正确收集
    - `events/nav/control/telemetry` 缺失符合预期
 5. 新增 `tools/supervisor/bundle_archive.py`，可把现有 bundle 目录最小打包成同级 `<bundle_dir>.tar.gz`，不重新导出、不上传。
-6. `docs/runbook/incident_bundle_guide.md` 与 `docs/runbook/local_debug_and_field_startup_guide.md` 已同步写明：
+6. `docs/validation/incident_bundle_guide.md` 与 `docs/operator/local_debug_and_field_startup_guide.md` 已同步写明：
    - `preflight_failed_before_spawn + required_ok=true` 仍然表示 bundle 导出成功
    - 真实 failure-path 样本的零字节 child logs / 缺失高频日志属于预期
    - 新的本地归档 helper 用法
@@ -490,12 +490,12 @@ GCS / 操作员观察面：
 已落地：
 
 1. 已新增 `tools/supervisor/run_local_teleop_smoke.sh`，把终端 1 推荐顺序收成 `up / status / down` helper。
-2. `docs/runbook/local_teleop_smoke_checklist.md` 现已明确：
+2. `docs/validation/local_teleop_smoke_checklist.md` 现已明确：
    - helper 返回 shell 是因为 `start --detach`，不是车端退出
    - `14550` 端口占用时优先怎样用同一个 `RUN_ROOT` 做 `down` 和 `pgrep` 排查
    - 带 teleop 的最短联调命令卡
    - 在哪里看 `logs/pwm/pwm_log_*.csv` 和如何解释 `ch*_cmd` / `ch*_applied`
-3. `docs/runbook/local_debug_and_field_startup_guide.md` 已同步收口本机 PWM 观察路径：
+3. `docs/operator/local_debug_and_field_startup_guide.md` 已同步收口本机 PWM 观察路径：
    - 默认 helper 仍保持 `--pwm-dummy`
    - 如果只想本机看 PWM 计算链，可单独跑 `--pwm-dummy-print`
 4. `documentation_index.md` 已补说明：`local_teleop_smoke_checklist.md` 现在同时覆盖 helper、最短命令卡、端口占用排查和 PWM 日志入口。
@@ -538,7 +538,7 @@ GCS / 操作员观察面：
    - 最小字段：`mono_ns / wall_time / event / severity / session_id / link_state / tx_seq / ack_seq / intent_cmd_seq / command_kind / command_status / result / detail`
    - 最小事件：`comm_link_state / session_state_changed / command_sent / command_ack / command_ack_timeout / command_result`
 6. 新增权威 runbook：
-   - `docs/runbook/field_validation_checklist.md`
+   - `docs/validation/field_validation_checklist.md`
 
 本轮验证：
 
@@ -639,7 +639,7 @@ GCS / 操作员观察面：
    - TUI 负责 teleop
    - GUI 负责只读 status / motion observer
 7. 新增权威基线文档：
-   - `docs/architecture/teleop_primary_operator_lane.md`
+   - `docs/baseline/teleop_primary_operator_lane.md`
 
 本轮验证：
 
@@ -697,7 +697,7 @@ GCS / 操作员观察面：
    - `AUTO` 与所有 nav-dependent 自动闭环模式必须保持禁用或拒绝
    - GCS / GUI 当前预期显示 `Motion Info=Control Only` 或等价 capability-aware 提示；诊断摘要仍可能为 `stale,invalid,NoData`
 7. 新增权威基线文档：
-   - `docs/architecture/minimum_viable_runtime_profiles.md`
+   - `docs/baseline/minimum_viable_runtime_profiles.md`
 
 本轮验证：
 
@@ -741,7 +741,7 @@ GCS / 操作员观察面：
 
 本轮新增权威审查文档：
 
-- `docs/architecture/commercialization_review.md`
+- `docs/baseline/commercialization_review.md`
 
 ## 0.1 2026-03-25 覆盖更新
 
@@ -807,9 +807,9 @@ GCS / 操作员观察面：
 
 已完成的设计文档：
 
-- `docs/architecture/control_nav_integration_plan.md`
-- `docs/architecture/sensor_toolchain_refactor_plan.md`
-- `docs/interfaces/logging_contract.md`
+- `docs/control_route/control_nav_integration_plan.md`
+- `docs/navigation_route/sensor_toolchain_refactor_plan.md`
+- `docs/contracts/logging_contract.md`
 
 这些文档已经明确：
 
@@ -827,12 +827,12 @@ GCS / 操作员观察面：
 - `docs/handoff/CODEX_HANDOFF.md`
 - `docs/handoff/CODEX_PROGRESS_LOG.md`
 - `docs/handoff/CODEX_NEXT_ACTIONS.md`
-- `docs/archive/archive_index.md`
+- `docs/history/archive_index.md`
 
 并完成：
 
 - 旧文档归档
-- 活跃导航专题文档收敛到 `docs/architecture/`
+- 活跃导航专题文档收敛到 `docs/`
 - 权威基线、Working draft、Archived、Obsolete 状态标识收口
 
 ### 3.3 Phase 0 supervisor 已从原型推进到“可做安全烟测准备”
@@ -875,7 +875,7 @@ GCS / 操作员观察面：
    - `gcs_server` UDP 端口占用检查
    - 已有 active run 检查
 7. 已新增最小 operator 说明：
-   - `docs/runbook/supervisor_phase0_operator_guide.md`
+   - `docs/operator/supervisor_phase0_operator_guide.md`
 
 ### 3.4 本轮实际验证结果
 
@@ -943,8 +943,8 @@ mock 回归结果：
   - 更新 `pwm_control_program/src/control_core/loop/control_loop_run.cpp`
   - 更新 `pwm_control_program/tests/test_v1_closed_loop.cpp`
 - `UnderwaterRobotSystem`
-  - 更新 `docs/architecture/logging_full_chain_audit.md`
-  - 更新 `docs/interfaces/logging_contract.md`
+  - 更新 `docs/validation/logging_full_chain_audit.md`
+  - 更新 `docs/contracts/logging_contract.md`
   - 更新 handoff / progress / next actions / nightly
 
 本轮未提交，未推送。
@@ -972,12 +972,12 @@ mock 回归结果：
 2. `docs/handoff/CODEX_HANDOFF.md`
 3. `docs/handoff/CODEX_NEXT_ACTIONS.md`
 4. `docs/project_memory.md`
-5. `docs/architecture/upgrade_strategy.md`
+5. `docs/upgrade_strategy.md`
 6. 相关接口契约与 runbook，优先：
-   - `docs/runbook/local_debug_and_field_startup_guide.md`
-   - `docs/runbook/incident_bundle_guide.md`
-   - `docs/runbook/supervisor_phase0_operator_guide.md`
-   - `docs/runbook/usb_reconnect_bench_plan.md`
+   - `docs/operator/local_debug_and_field_startup_guide.md`
+   - `docs/validation/incident_bundle_guide.md`
+   - `docs/operator/supervisor_phase0_operator_guide.md`
+   - `docs/validation/usb_reconnect_bench_plan.md`
 
 
 ## 9. 2026-03-23 导航侧传感器采集工具链防呆收口

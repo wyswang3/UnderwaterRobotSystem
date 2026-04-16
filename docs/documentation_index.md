@@ -3,165 +3,227 @@
 ## 文档状态
 
 - 状态：Authoritative
-- 说明：当前文档体系总索引、目录说明与权威基线清单。
+- 说明：当前系统文档仓主入口。根目录只保留 4 篇主文档，其余内容按固定子目录分层，目标是让读者先找到入口，再进入细节。
 
-## 1. 文档目录结构
+## 1. 当前目录结构 / Current Layout
 
-当前文档目录固定为以下结构：
+### 1.1 根目录只保留 4 篇主文档
 
-- `docs/architecture/`
-  - 系统架构、主数据流、重构设计、跨仓兼容与专题评审
-- `docs/interfaces/`
-  - shared / SHM / telemetry / 时间 / logging 等接口契约
-- `docs/runbook/`
-  - bring-up、operator、replay、故障恢复、验证步骤
-- `docs/productization/`
-  - 当前阶段产品化收口、夜间进展、专题计划
-- `docs/handoff/`
-  - Codex 交接体系固定入口
-- `docs/archive/`
-  - 历史参考、旧总览、阶段性快照、测试报告与局部审查记录
+- `docs/documentation_index.md`
+  - 总入口 / start here
+- `docs/operator_manual.md`
+  - 当前操作说明 / current operator path
+- `docs/project_memory.md`
+  - 当前阶段判断 / current technical thinking
+- `docs/upgrade_strategy.md`
+  - 当前升级主线 / current upgrade strategy
 
-约束：
+### 1.2 固定子目录
 
-1. 新增文档优先放入以上 6 类目录。
-2. 不再新增 `docs/navigation/`、`docs/test/` 这类临时目录。
-3. 普通文档统一使用英文、小写、下划线命名。
-4. 交接文档固定使用：
-   - `CODEX_HANDOFF.md`
-   - `CODEX_PROGRESS_LOG.md`
-   - `CODEX_NEXT_ACTIONS.md`
+| Directory | 用途 | 说明 |
+| --- | --- | --- |
+| `docs/handoff/` | Codex handoff | 交接、进度、下一轮动作 |
+| `docs/baseline/` | system baseline | 系统总览、阶段补充、商业化收口 |
+| `docs/contracts/` | contracts | 时间、导航、遥测、控制契约 |
+| `docs/operator/` | operator support | GCS、supervisor、现场操作补充 |
+| `docs/validation/` | validation / replay | bench、replay、bundle、验证 |
+| `docs/control_route/` | control route | 控制侧路线、设备识别、集成计划 |
+| `docs/navigation_route/` | navigation route | 导航侧路线、故障、传感器链 |
+| `docs/ros2_route/` | ROS2 route | ROS2 bridge、UI backend、消息映射 |
+| `docs/history/` | history / archive | 旧规划、阶段快照、历史证据 |
 
-## 2. Codex 优先阅读顺序
+规则：
 
-每次新会话启动后，优先阅读顺序固定为：
+1. 新文档先判断是否应并入 4 篇主文档。
+2. 不能并入时，只能进入上表中的固定子目录。
+3. 不再恢复随意扩张的平铺文件，也不再新增临时目录。
 
-1. 工作区根目录下的 `AGENTS.md`
+## 2. Start Here / 快速阅读路径
+
+### 2.1 Codex startup path
+
+1. `/home/wys/orangepi/AGENTS.md`
 2. `docs/handoff/CODEX_HANDOFF.md`
 3. `docs/handoff/CODEX_NEXT_ACTIONS.md`
 4. `docs/project_memory.md`
-5. `docs/architecture/upgrade_strategy.md`
-6. 相关接口契约与 runbook
+5. `docs/upgrade_strategy.md`
+6. 当前任务对应的 contract / operator / route 文档
 
-补充说明：
+补充：
 
-- 若需要补上下文细节，再看 `docs/handoff/CODEX_PROGRESS_LOG.md`
-- 若需要历史证据，再看 `docs/archive/archive_index.md`
+- 时间线：`docs/handoff/CODEX_PROGRESS_LOG.md`
+- 历史材料：`docs/history/archive_index.md`
 
-## 3. 当前权威基线
+### 2.2 New developer path
 
-以下文档当前被定义为权威基线：
+1. `docs/project_memory.md`
+2. `docs/upgrade_strategy.md`
+3. `docs/baseline/system_main_dataflow.md`
+4. `docs/contracts/time_contract.md`
+5. `docs/contracts/nav_state_contract.md`
+6. `docs/contracts/telemetry_ui_contract.md`
 
-### 3.1 总体基线
+### 2.3 Operator / integration path
 
-- `docs/project_memory.md`
-- `docs/architecture/system_main_dataflow.md`
-- `docs/architecture/upgrade_strategy.md`
-- `docs/architecture/commercialization_review.md`
-- `docs/architecture/minimum_viable_runtime_profiles.md`
-- `docs/architecture/teleop_primary_operator_lane.md`
-- `docs/documentation_index.md`
+1. `docs/operator_manual.md`
+2. `docs/operator/香橙派_当前实验_操作员使用说明.md`
+3. `docs/operator/gcs_ui_operator_guide.md`
+4. `docs/operator/local_debug_and_field_startup_guide.md`
+5. `docs/validation/incident_bundle_guide.md`
 
-### 3.2 接口契约基线
+## 3. Current Main Docs / 当前 4 篇主文档
 
-- `docs/interfaces/time_contract.md`
-- `docs/interfaces/nav_state_contract.md`
-- `docs/interfaces/nav_view_contract.md`
-- `docs/interfaces/telemetry_ui_contract.md`
-- `docs/interfaces/control_intent_contract.md`
+- `documentation_index.md`
+  - 用来判断“先看哪篇”，不是技术细节总汇
+- `operator_manual.md`
+  - 用来跑当前最小可执行操作路径
+- `project_memory.md`
+  - 用来理解当前阶段、边界、已完成与未完成
+- `upgrade_strategy.md`
+  - 用来理解当前技术路线和优先级排序
 
-### 3.3 运行与验证基线
+## 4. Subdirectory Guide / 子目录导航
 
-- `docs/runbook/gcs_ui_operator_guide.md`
-- `docs/runbook/local_debug_and_field_startup_guide.md`
-- `docs/runbook/operator_manual.md`
-  - 车端控制侧 / 上位机最短启动命令卡，以及 IMU / Volt32 现场识别与解析排查口径
-- `docs/runbook/香橙派_当前实验_操作员使用说明.md`
-  - 面向现场操作员的中文顺序卡，覆盖开机、脚本赋权、Python/虚拟环境、车端启动和最短排障
-- `docs/runbook/local_teleop_smoke_checklist.md`
-  - 本机 `control_only` helper、最短 teleop/PWM 命令卡、14550 端口占用排查与 PWM 日志查看入口
-- `docs/runbook/field_validation_checklist.md`
-- `docs/runbook/incident_bundle_guide.md`
-- `docs/runbook/log_replay_guide.md`
-- `docs/runbook/usb_reconnect_bench_plan.md`
-- `docs/runbook/replay_injection_guide.md`
+### 4.1 `docs/handoff/`
 
-补充说明：
+- `CODEX_HANDOFF.md`
+- `CODEX_NEXT_ACTIONS.md`
+- `CODEX_PROGRESS_LOG.md`
 
-- 当前 Linux bring-up / teleop primary lane 默认基线，统一以 `docs/architecture/teleop_primary_operator_lane.md` + `docs/runbook/local_debug_and_field_startup_guide.md` 为准。
-- 当前 bundle completeness / triage 语义，统一以 `docs/runbook/incident_bundle_guide.md` + `docs/runbook/local_debug_and_field_startup_guide.md` 为准。
+用途：
 
-### 3.4 Codex 交接基线
+- 交接恢复
+- 下一轮动作
+- 时间线追踪
 
-- `docs/handoff/CODEX_HANDOFF.md`
-- `docs/handoff/CODEX_PROGRESS_LOG.md`
-- `docs/handoff/CODEX_NEXT_ACTIONS.md`
+### 4.2 `docs/baseline/`
 
-## 4. 当前 Working Draft 文档
+- `system_main_dataflow.md`
+- `commercialization_review.md`
+- `minimum_viable_runtime_profiles.md`
+- `teleop_primary_operator_lane.md`
+- `cross_repo_compatibility_matrix.md`
 
-以下文档是当前有效的设计草案或阶段性计划，可用于后续实施，但不能直接当成“已经全部落地的事实”：
+用途：
 
-- `docs/architecture/control_nav_integration_plan.md`
-- `docs/architecture/sensor_toolchain_refactor_plan.md`
-- `docs/architecture/logging_full_chain_audit.md`
-- `docs/interfaces/logging_contract.md`
-- `docs/architecture/ros2_bridge_stage1_plan.md`
-- `docs/architecture/ros2_refactor_assessment.md`
-- `docs/productization/ui_upgrade_plan.md`
-- `docs/productization/ui_windows_support_audit.md`
-- `docs/productization/commercial_upgrade_roadmap.md`
+- 当前系统总路径
+- 当前交付形态和最小运行轮廓
 
-## 5. 当前 Archived / Historical 文档
+### 4.3 `docs/contracts/`
 
-以下文档仅作历史参考，不作为当前唯一事实依据：
+- `time_contract.md`
+- `nav_state_contract.md`
+- `nav_view_contract.md`
+- `telemetry_ui_contract.md`
+- `control_intent_contract.md`
+- `logging_contract.md`
 
-- `docs/archive/root/system_overview_legacy.md`
-- `docs/archive/root/project_quality_audit_chinese_explanation.md`
-- `docs/archive/root/first_dive_checklist_legacy.md`
-- `docs/archive/navigation/repo_local_change_summary_20260312.md`
-- `docs/archive/test/nav_module_test_plan.md`
-- `docs/archive/test/p0_contract_baseline_test_report.md`
-- `docs/architecture/project_upgrade_master_plan.md`
-- `docs/productization/codex_handoff.md`
+用途：
 
-说明：
+- 跨仓真实语义边界
+- shared / telemetry / timing 对齐
 
-- 若 Archived 文档与权威基线冲突，一律以权威基线和代码为准。
-- Archived 文档主要用于理解当时的规划口径、整改背景或测试证据。
+### 4.4 `docs/operator/`
 
-## 6. 命名与状态标识规范
+- `gcs_ui_operator_guide.md`
+- `local_debug_and_field_startup_guide.md`
+- `supervisor_phase0_operator_guide.md`
+- `device_binding_and_reconnect.md`
+- `fault_code_reference.md`
+- `香橙派_当前实验_操作员使用说明.md`
 
-### 6.1 命名规范
+用途：
 
-1. 普通文档：英文、小写、下划线。
-2. 避免使用：`final_v2_new_latest` 这类不可维护命名。
-3. 交接文档：固定大写命名。
+- 当前操作补充
+- 现场 bring-up / GCS / supervisor / fault lookup
 
-### 6.2 状态标识
+### 4.5 `docs/validation/`
 
-关键文档开头统一使用以下状态之一：
+- `field_validation_checklist.md`
+- `local_teleop_smoke_checklist.md`
+- `incident_bundle_guide.md`
+- `incident_timeline_usage.md`
+- `log_replay_guide.md`
+- `logging_full_chain_audit.md`
+- `nav_timing_log_guide.md`
+- `replay_injection_guide.md`
+- `usb_reconnect_bench_plan.md`
 
-- `Authoritative`
-- `Working draft`
-- `Archived`
-- `Obsolete`
+用途：
 
-含义：
+- bench / replay / compare / bundle / triage
 
-- `Authoritative`
-  - 当前生效基线
-- `Working draft`
-  - 方向已冻结，但尚未全部实施
-- `Archived`
-  - 历史参考，保留证据价值
-- `Obsolete`
-  - 已被新路径或新文档替代
+### 4.6 `docs/control_route/`
 
-## 7. 当前整理原则
+- `control_nav_integration_plan.md`
+- `device_identification_and_profiles_plan.md`
 
-本轮整理后的原则如下：
+用途：
 
-1. 先保证“主入口清晰”，再补细节。
-2. 先区分权威基线与历史参考，再谈内容增补。
-3. 交接文档固定到 `docs/handoff/`，不再散落在其他目录。
-4. 夜间进展保留在 `docs/productization/`，交接摘要保留在 `docs/handoff/`。
+- 控制侧技术路线
+- 设备识别与 profile 思路
+
+### 4.7 `docs/navigation_route/`
+
+- `nav_fault_handling_plan.md`
+- `nav_module_review.md`
+- `nav_shm_contract_review.md`
+- `sensor_toolchain_refactor_plan.md`
+
+用途：
+
+- 导航侧技术路线
+- 故障传播、传感器链、共享状态审查
+
+### 4.8 `docs/ros2_route/`
+
+- `ros2_bridge_stage1_plan.md`
+- `ros2_bridge_validation_guide.md`
+- `ros2_refactor_assessment.md`
+- `rov_msgs_mapping.md`
+- `ui_upgrade_plan.md`
+- `ui_windows_support_audit.md`
+
+用途：
+
+- ROS2 外围桥接路线
+- UI backend / bridge / message mapping
+
+### 4.9 `docs/history/`
+
+- `archive_index.md`
+- `nightly_upgrade_progress.md`
+- `system_overview_legacy.md`
+- `project_quality_audit_chinese_explanation.md`
+- `first_dive_checklist_legacy.md`
+- `repo_local_change_summary_20260312.md`
+- `nav_module_test_plan.md`
+- `p0_contract_baseline_test_report.md`
+- `project_upgrade_master_plan.md`
+
+用途：
+
+- 历史证据
+- 旧结论与阶段快照
+
+## 5. Consolidated / Removed / 已合并与删除
+
+以下重复文档已并入主文档，不再单独保留：
+
+- `bringup_runbook.md`
+  - 并入：`operator_manual.md`、`docs/operator/local_debug_and_field_startup_guide.md`
+- `customer_onboarding_guide.md`
+  - 并入：`operator_manual.md`、`docs/operator/香橙派_当前实验_操作员使用说明.md`
+- `customer_fault_recovery_guide.md`
+  - 并入：`operator_manual.md`、`docs/operator/gcs_ui_operator_guide.md`
+- `commercial_upgrade_roadmap.md`
+  - 并入：`docs/baseline/commercialization_review.md`、`upgrade_strategy.md`
+- `p0_contract_baseline_status.md`
+  - 删除；历史判断已被 `project_memory.md` 与 `docs/handoff/CODEX_PROGRESS_LOG.md` 覆盖
+
+## 6. 使用规则 / Reading Rules
+
+1. 先看根目录 4 篇主文档，再看对应子目录。
+2. 契约问题优先看 `docs/contracts/`，不要从 UI 文档反推真实语义。
+3. 历史材料只用于证据，不作为当前默认口径。
+4. 如果一篇文档只重复主文档、又没有证据价值，就继续删，不再囤积。

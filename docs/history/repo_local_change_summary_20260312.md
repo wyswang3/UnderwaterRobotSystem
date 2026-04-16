@@ -57,10 +57,10 @@
 
 新增文档：
 
-- `docs/navigation/nav_module_review.md`
-- `docs/navigation/nav_fault_handling_plan.md`
-- `docs/navigation/nav_shm_contract_review.md`
-- `docs/test/nav_module_test_plan.md`
+- `docs/nav_module_review.md`
+- `docs/nav_fault_handling_plan.md`
+- `docs/nav_shm_contract_review.md`
+- `docs/nav_module_test_plan.md`
 
 这些文档对应本轮导航 P0 整改的审查结论、契约定义和测试基线。
 

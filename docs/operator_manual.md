@@ -7,7 +7,7 @@
 
 补充入口：
 
-- 面向现场操作员的中文顺序卡：`docs/runbook/香橙派_当前实验_操作员使用说明.md`
+- 面向现场操作员的中文顺序卡：`docs/operator/香橙派_当前实验_操作员使用说明.md`
 
 ## 适用范围
 
@@ -45,6 +45,28 @@
    - `gcs_server`
 4. 当前推荐操作入口是 TUI；GUI 只做只读状态预览，不作为主 teleop 入口。
 5. IMU / DVL / Volt32 当前都不是 `control_only` 启动硬依赖；只有在 `device-scan -> startup-profiles -> preflight --profile bench` 通过后，才允许进入带导航 preview 的 `bench` 路径。
+
+### 1.1 第一次上手的最小闭环
+
+如果是第一次接触当前系统，只记下面这条最小路径：
+
+1. 先确认 OrangePi 与上位机在同一局域网。
+2. 车端先跑 `up-real` 或至少 `up`。
+3. 上位机先跑 GCS `preflight`，再进入 TUI。
+4. 先确认 `session_established=1`、`link_alive=1`。
+5. 再执行 `clear estop -> arm -> Manual 小幅单键遥控`。
+
+不要把“握手成功”直接理解成“推进器一定会动”。真正是否放行，还要看远端 `estop / arm / mode / failsafe`。
+
+### 1.2 卡住时的最短恢复顺序
+
+当前推荐的最短恢复顺序固定为：
+
+1. 先看车端 `doctor/status`。
+2. 再看上位机 TUI / GUI 的 `Connection`、`Control`、`Command`。
+3. 如果看到 `Mismatch / Reconnecting / Stale / Invalid`，先恢复设备或导航状态，不要强推 `Auto`。
+4. 如果看到 `E-Stop latched / Disarmed / Failsafe`，先恢复远端安全前提，再重发命令。
+5. 仍不明确时，直接导出 bundle，不要只靠口头描述。
 
 ## 2. 车端控制侧快速启动
 
@@ -235,6 +257,16 @@ pgrep -af "gcs_server|phase0_supervisor.py|pwm_control_program"
 2. `/tmp/phase0_supervisor_*/<date>/<run_id>/process_status.json`
 3. `/tmp/phase0_supervisor_*/<date>/<run_id>/supervisor_events.csv`
 4. `/tmp/phase0_supervisor_*/<date>/<run_id>/child_logs/`
+
+如果当前问题是“上位机能连上，但车没动作”，优先按这个顺序判断：
+
+1. `session_established`
+2. `link_alive`
+3. remote `estop`
+4. remote `armed`
+5. remote `mode`
+6. `failsafe_active`
+7. `command_status`
 
 ## 3. 上位机快速启动
 

@@ -27,9 +27,9 @@
   - `scripts/enter_gcs_env.sh`
   - `tools/supervisor/enter_supervisor_env.sh`
 - 更新并版本化了操作员文档：
-  - `docs/runbook/香橙派_当前实验_操作员使用说明.md`
-  - `docs/runbook/operator_manual.md`
-  - `docs/runbook/gcs_ui_operator_guide.md`
+  - `docs/operator/香橙派_当前实验_操作员使用说明.md`
+  - `docs/operator_manual.md`
+  - `docs/operator/gcs_ui_operator_guide.md`
   - `docs/documentation_index.md`
 - 工作区层面补充了 `.gitignore`，并撤掉了这轮不需要保留的测试改动。
 
@@ -57,9 +57,9 @@
   - `docs/handoff/CODEX_PROGRESS_LOG.md`
   - `docs/handoff/CODEX_NEXT_ACTIONS.md`
 - 此外，运行与操作侧基线文档也同步更新：
-  - `docs/runbook/香橙派_当前实验_操作员使用说明.md`
-  - `docs/runbook/operator_manual.md`
-  - `docs/runbook/gcs_ui_operator_guide.md`
+  - `docs/operator/香橙派_当前实验_操作员使用说明.md`
+  - `docs/operator_manual.md`
+  - `docs/operator/gcs_ui_operator_guide.md`
   - `docs/documentation_index.md`
 
 ### Git 收口
@@ -115,7 +115,7 @@
   - `optional_missing`
   - 当前设备用于哪些 capability level
 - GCS GUI 现在会把 IMU / DVL 的低频诊断状态翻译成更适合实机调试的文字，不再只显示粗粒度 `device_offline`。
-- 已新增 `docs/runbook/field_validation_checklist.md`，把实机前检查、teleop 流程、姿态反馈检查、relative nav 检查、bundle 导出和常见失败点顺序固定下来。
+- 已新增 `docs/validation/field_validation_checklist.md`，把实机前检查、teleop 流程、姿态反馈检查、relative nav 检查、bundle 导出和常见失败点顺序固定下来。
 - 已把 `comm_events.csv` 的最小字段、最小事件集合和 bundle 接入路径写进权威文档，先完成设计准备，不强行进入高风险实现。
 
 ### 验证结果
@@ -223,14 +223,14 @@
   - footer 明确 TUI 是 teleop 主入口、GUI 只是只读 observer
 - 修正了 GCS preflight 的启动顺序 drift，不再默认要求“先起导航再起控制”。
 - 新增：
-  - `docs/architecture/teleop_primary_operator_lane.md`
+  - `docs/baseline/teleop_primary_operator_lane.md`
 - 更新：
   - `docs/documentation_index.md`
-  - `docs/runbook/local_debug_and_field_startup_guide.md`
-  - `docs/runbook/gcs_ui_operator_guide.md`
+  - `docs/operator/local_debug_and_field_startup_guide.md`
+  - `docs/operator/gcs_ui_operator_guide.md`
   - `docs/handoff/CODEX_HANDOFF.md`
   - `docs/handoff/CODEX_NEXT_ACTIONS.md`
-  - `docs/productization/nightly_upgrade_progress.md`
+  - `docs/history/nightly_upgrade_progress.md`
 
 ### 验证结果
 
@@ -279,13 +279,13 @@
   - `control_only` preflight
   - `control_only` 下歧义设备识别仅作为 warning / info，不阻塞启动
 - 新增：
-  - `docs/architecture/minimum_viable_runtime_profiles.md`
+  - `docs/baseline/minimum_viable_runtime_profiles.md`
 - 更新：
   - `docs/documentation_index.md`
-  - `docs/runbook/local_debug_and_field_startup_guide.md`
+  - `docs/operator/local_debug_and_field_startup_guide.md`
   - `docs/handoff/CODEX_HANDOFF.md`
   - `docs/handoff/CODEX_NEXT_ACTIONS.md`
-  - `docs/productization/nightly_upgrade_progress.md`
+  - `docs/history/nightly_upgrade_progress.md`
 
 ### 验证结果
 
@@ -319,12 +319,12 @@
 
 - 基于当前最新代码、runbook、handoff、nightly 和阶段成果，对 UnderwaterRobotSystem 做了一轮“面向商业化落地”的项目审查。
 - 新增：
-  - `docs/architecture/commercialization_review.md`
+  - `docs/baseline/commercialization_review.md`
 - 更新：
   - `docs/documentation_index.md`
   - `docs/handoff/CODEX_HANDOFF.md`
   - `docs/handoff/CODEX_NEXT_ACTIONS.md`
-  - `docs/productization/nightly_upgrade_progress.md`
+  - `docs/history/nightly_upgrade_progress.md`
 - 审查结论已明确：
   1. 当前系统更接近 `bench-safe` 工程集成平台，而不是现场可稳定交付的商业化产品。
   2. 已具备产品化基础的模块主要在 supervisor、incident bundle、TUI 基线、GUI overview preview、device gate 和日志骨架。
@@ -380,11 +380,11 @@
   - `tools/supervisor/tests/test_device_identification.py`
   - `tools/supervisor/tests/test_phase0_supervisor.py`
 - 更新：
-  - `docs/architecture/device_identification_and_profiles_plan.md`
-  - `docs/runbook/local_debug_and_field_startup_guide.md`
+  - `docs/control_route/device_identification_and_profiles_plan.md`
+  - `docs/operator/local_debug_and_field_startup_guide.md`
   - `docs/handoff/CODEX_HANDOFF.md`
   - `docs/handoff/CODEX_NEXT_ACTIONS.md`
-  - `docs/productization/nightly_upgrade_progress.md`
+  - `docs/history/nightly_upgrade_progress.md`
 
 ### 验证结果
 
@@ -443,9 +443,9 @@
 
 - 完成“控制与导航整合 + 通信链路统一拉起 + 三传感器工具链去屎山化 + 日志统一”专项审查
 - 新增：
-  - `docs/architecture/control_nav_integration_plan.md`
-  - `docs/architecture/sensor_toolchain_refactor_plan.md`
-  - `docs/interfaces/logging_contract.md`
+  - `docs/control_route/control_nav_integration_plan.md`
+  - `docs/navigation_route/sensor_toolchain_refactor_plan.md`
+  - `docs/contracts/logging_contract.md`
 
 ### 验证结果
 
@@ -483,14 +483,14 @@
   - `CODEX_NEXT_ACTIONS.md`
 - 新增：
   - `docs/documentation_index.md`
-  - `docs/archive/archive_index.md`
+  - `docs/history/archive_index.md`
 - 归档旧文档：
   - `system_overview.md`
   - `Project_Quality_Audit_Chinese_Explanation.md`
   - `first_dive_checklist.md`
   - `repo_local_change_summary_20260312.md`
   - 历史测试计划与报告
-- 将活跃导航专题文档收敛到 `docs/architecture/`
+- 将活跃导航专题文档收敛到 `docs/`
 - 为关键基线文档补状态标识
 - 更新 `AGENTS.md` 的文档阅读顺序与优先级
 
@@ -536,7 +536,7 @@
 - 更新：
   - `docs/handoff/CODEX_HANDOFF.md`
   - `docs/handoff/CODEX_NEXT_ACTIONS.md`
-  - `docs/productization/nightly_upgrade_progress.md`
+  - `docs/history/nightly_upgrade_progress.md`
 
 ### 验证结果
 
@@ -632,7 +632,7 @@
   - `nav_daemon.yaml` 中设备节点可见性检查
   - `/dev/serial/by-id` 可见性提示
 - 新增最小 operator runbook：
-  - `docs/runbook/supervisor_phase0_operator_guide.md`
+  - `docs/operator/supervisor_phase0_operator_guide.md`
 - 补充 targeted unittest：
   - preflight CLI 回归
   - 设备路径提取纯函数测试
@@ -667,10 +667,10 @@
   - `docs/handoff/CODEX_HANDOFF.md`
   - `docs/handoff/CODEX_PROGRESS_LOG.md`
   - `docs/handoff/CODEX_NEXT_ACTIONS.md`
-  - `docs/productization/nightly_upgrade_progress.md`
+  - `docs/history/nightly_upgrade_progress.md`
   - `docs/documentation_index.md`
 - 新增：
-  - `docs/runbook/supervisor_phase0_operator_guide.md`
+  - `docs/operator/supervisor_phase0_operator_guide.md`
 
 ### Git 收口
 
@@ -916,7 +916,7 @@
 - `phase0_supervisor.py` 新增 `bundle` 子命令，支持 latest run、`--run-dir`、`--bundle-dir`、`--json`。
 - 新增 `bundle_summary.json` / `bundle_summary.txt`。
 - 固定 required / optional / incomplete 规则，并在 summary 里显式列出 `missing_required_keys` / `missing_optional_keys`。
-- 新增 `docs/runbook/incident_bundle_guide.md`，并更新 `local_debug_and_field_startup_guide.md`，把“运行 -> 记录 -> 导出 -> 反馈 -> 复现”闭环写清楚。
+- 新增 `docs/validation/incident_bundle_guide.md`，并更新 `local_debug_and_field_startup_guide.md`，把“运行 -> 记录 -> 导出 -> 反馈 -> 复现”闭环写清楚。
 
 ### 验证结果
 

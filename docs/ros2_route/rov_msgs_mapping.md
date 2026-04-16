@@ -9,10 +9,10 @@
 - `shared/msg/telemetry_frame_v2.hpp`
 - `shared/msg/nav_state_view.hpp`
 - `shared/msg/nav_state.hpp`
-- `docs/interfaces/time_contract.md`
-- `docs/interfaces/nav_state_contract.md`
-- `docs/interfaces/nav_view_contract.md`
-- `docs/interfaces/control_intent_contract.md`
+- `docs/contracts/time_contract.md`
+- `docs/contracts/nav_state_contract.md`
+- `docs/contracts/nav_view_contract.md`
+- `docs/contracts/control_intent_contract.md`
 
 ## 1. 当前消息清单
 
