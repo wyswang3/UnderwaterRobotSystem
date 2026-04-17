@@ -41,16 +41,24 @@ class Phase0SupervisorTest(unittest.TestCase):
         config_text = '\n'.join(
             [
                 'imu:',
+                '  enable: true',
                 '  driver:',
                 '    port: "/dev/ttyUSB0"',
                 'dvl:',
+                '  enable: false',
                 '  driver:',
                 '    port: "/dev/ttyACM0"',
+                'volt:',
+                '  enable: true',
+                '  port: "/dev/ttyUSB1"',
                 'extra:',
                 '  port: "/dev/ttyUSB0"',
             ]
         )
-        self.assertEqual(['/dev/ttyUSB0', '/dev/ttyACM0'], sup.extract_device_paths_from_text(config_text))
+        self.assertEqual(
+            ['/dev/ttyUSB0', '/dev/ttyUSB1'],
+            sup.extract_device_paths_from_text(config_text),
+        )
 
     def test_bench_profile_preflight_paths_exist(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

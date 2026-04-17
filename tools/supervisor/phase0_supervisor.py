@@ -303,6 +303,8 @@ def resolve_target_run_dir(run_root: Path, run_dir: Optional[Path]) -> Optional[
 def build_control_comm_specs(*, real_pwm: bool = False) -> List[ProcessSpec]:
     pwm_bin = CTRL_ROOT / 'build' / 'bin' / 'pwm_control_program'
     gcs_bin = CTRL_ROOT / 'build' / 'bin' / 'gcs_server'
+    nav_cfg = NAV_CORE_ROOT / 'config' / 'nav_daemon.yaml'
+    nav_lane_manager = REPO_ROOT / 'tools' / 'supervisor' / 'nav_lane_manager.py'
 
     pwm_cfg_dir = CTRL_ROOT / 'pwm_control_program' / 'config'
     pwm_cfg = pwm_cfg_dir / 'pwm_client.yaml'
@@ -341,8 +343,10 @@ def build_control_comm_specs(*, real_pwm: bool = False) -> List[ProcessSpec]:
                 '--ip', '0.0.0.0',
                 '--port', '14550',
                 '--intent-shm', '/rovctrl_gcs_intent_v1',
+                '--nav-config-path', str(nav_cfg),
+                '--nav-lane-manager-script', str(nav_lane_manager),
             ],
-            required_paths=[gcs_bin],
+            required_paths=[gcs_bin, nav_cfg, nav_lane_manager],
         ),
     ]
 
@@ -465,17 +469,44 @@ def check_file_readable(path: Path, title: str) -> PreflightResult:
 
 
 def extract_device_paths_from_text(text: str) -> List[str]:
-    devices: List[str] = []
-    seen = set()
-    for line in text.splitlines():
+    section_ports: dict[str, List[str]] = {'imu': [], 'dvl': [], 'volt': []}
+    section_enabled: dict[str, Optional[bool]] = {'imu': None, 'dvl': None, 'volt': None}
+    current_section = ''
+
+    for raw_line in text.splitlines():
+        line = raw_line.split('#', 1)[0].rstrip()
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        if raw_line and raw_line[0] not in {' ', '\t'} and stripped.endswith(':'):
+            current_section = stripped[:-1]
+            continue
+
+        if current_section in section_enabled and stripped.startswith('enable:'):
+            value = stripped.split(':', 1)[1].strip().lower()
+            section_enabled[current_section] = value in {'true', '1', 'yes', 'on'}
+            continue
+
+        if current_section not in section_ports:
+            continue
+
         match = DEVICE_PORT_RE.match(line)
         if match is None:
             continue
-        device_path = match.group('path')
-        if device_path in seen:
+        section_ports[current_section].append(match.group('path'))
+
+    devices: List[str] = []
+    seen = set()
+    for section_name, ports in section_ports.items():
+        enabled = section_enabled.get(section_name)
+        if enabled is False:
             continue
-        seen.add(device_path)
-        devices.append(device_path)
+        for device_path in ports:
+            if device_path in seen:
+                continue
+            seen.add(device_path)
+            devices.append(device_path)
     return devices
 
 

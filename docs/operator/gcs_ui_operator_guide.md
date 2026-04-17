@@ -13,8 +13,10 @@
 当前结论：
 
 - TUI 仍是当前完整键盘 teleop 基线。
-- GUI 已支持首页总览 preview。
-- GUI 还支持一个 read-only ROS2 preview source，用于消费 `/rov/telemetry` mirror，并可选显示 `/rov/health_monitor` 的 advisory 恢复建议。
+- GUI 已支持可操作主界面：
+  - 通过 UDP command lane 做 `ESTOP / clear ESTOP / ARM / DISARM / mode switch / DOF apply`
+  - 通过 ROS2 mirror source 提供更完整的执行链 / 导航细节页
+- GUI 还支持一个 ROS2 mirror source，用于消费 `/rov/telemetry` mirror，并可选显示 `/rov/health_monitor` 的 advisory 恢复建议。
 - Linux 是当前 GUI/TUI 都能稳定验证的主路径。
 - Windows 当前提供 GUI preview 与最小诊断路径，但还没有完成现场交付级验证。
 
@@ -53,7 +55,7 @@ source scripts/enter_gcs_env.sh
 
 ### 操作员侧
 
-#### Linux GUI preview（UDP 主路径）
+#### Linux GUI（UDP command lane + 默认 telemetry）
 
 ```bash
 cd <UnderWaterRobotGCS repo root on the upper computer>
@@ -66,7 +68,7 @@ UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_gui.sh
 UROGCS_ROV_IP=<OrangePi_IP> bash scripts/run_gui.sh --debug-session
 ```
 
-#### Linux GUI ROS2 preview（只读）
+#### Linux GUI ROS2 detail path（UDP command lane + ROS2 detail telemetry）
 
 ```bash
 . /opt/ros/humble/setup.bash
@@ -80,7 +82,8 @@ PYTHONPATH=src python3 -m urogcs.app.gui_main --telemetry-source ros2
 - 这条路径要求 `ros2_bridge` 已先完成 `colcon build`，并且当前 shell 已 source 对应 `install/setup.bash`。
 - 若本机同时存在 conda Python 与 ROS2 Humble system Python，需使用能正确导入生成后 `rov_msgs` 的那一套环境。
 - 若 ROS2 图中同时存在 `/rov/health_monitor`，GUI 会在 `Fault Summary` 和页脚里显示 advisory 摘要与建议恢复动作。
-- 它只消费 mirror topic，不替代当前 UDP teleop。
+- GUI 里的控制按钮仍然走 UDP command lane，不走 ROS2 写回。
+- ROS2 只负责补充执行链和导航细节观测，不替代当前 UDP teleop。
 
 #### Linux TUI teleop
 
@@ -137,9 +140,17 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 
 如果 preflight 没过，不要继续进入 GUI/TUI，先停在对应步骤处理。
 
-## 3. 当前 GUI 首页怎么读
+## 3. 当前 GUI 页面怎么读
 
-首页当前固定有六张状态卡片。
+GUI 当前固定分为几个主要页面：
+
+- `Overview`
+- `Operate`
+- `Execution`
+- `Navigation`
+- `Power`
+
+其中 `Overview` 仍保留六张核心状态卡，供操作者第一眼判断当前系统是否可操作。
 
 ### Connection
 
@@ -210,7 +221,78 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 
 它来自现有 alarm 规则和 advisory health monitor 摘要，不是 GUI 自己编新逻辑。ROS2 preview 下若收到 `/rov/health_monitor`，这里还会附带 `recommended_action`。
 
-## 4. 当前 GUI 与 TUI 的边界
+## 4. 当前 Operate 页怎么读
+
+`Operate` 页是当前 GUI 的主操作面。
+
+它当前提供：
+
+- `ESTOP`
+- `Clear ESTOP`
+- `ARM`
+- `DISARM`
+- `Manual / Auto / Failsafe`
+- 6DOF 数值输入
+- `Apply DOF`
+- `Zero DOF`
+- `Live Send`
+
+硬规则：
+
+1. GUI 本地按钮只代表“命令请求已发送”，不代表远端已经执行成功。
+2. 真正是否生效，仍必须继续看：
+   - `Control`
+   - `Command`
+   - `Execution`
+3. `Live Send` 只改变 GUI 的发送方式，不改变下位机 authority 和安全裁决。
+
+## 5. 当前 Execution / Navigation / Power 页边界
+
+### Execution
+
+当前设计目标是把操作员最关心的执行链放在同一个页面：
+
+- requested DOF
+- applied DOF
+- `thruster_cmd[8]`
+- `pwm_duty[8]`
+- STM32 / PWM link health
+- latest command result
+
+说明：
+
+- 这些细节当前优先依赖 ROS2 mirror 的完整 `TelemetryFrameV2`。
+- 若只走紧凑 UDP `StatusTelemetry`，GUI 仍可操作，但这页会退化成“需要 ROS2 detail telemetry”。
+- 当前还没有“每一帧 PWM 已被 STM32 明确执行确认”的逐帧回执字段；页面当前只能显示链路级健康、发送统计和最新命令结果。
+
+### Navigation
+
+当前把导航信息按层次拆开：
+
+- trust gate
+- attitude / depth
+- position / velocity
+
+操作员读法仍应保持：
+
+1. 先看 `valid / stale / degraded`
+2. 再看 `fault / status_flags`
+3. 最后再看姿态、速度、位置数值
+
+### Power
+
+当前 `Power` 页先只承认以下真实边界：
+
+- Volt32 已在导航侧用于采集与日志
+- 但电机电流 / 功率当前还没有稳定进入统一 UI telemetry 契约
+
+当前页面会先固定展示后续显示规则：
+
+- `displayed_current_a = raw_sensor_current * 40`
+- 电机母线电压固定按 `24 V`
+- 当前采样到的电压通道只是分压测量，不应直接当成电机母线绝对电压
+
+## 6. 当前 GUI 与 TUI 的边界
 
 ### GUI 当前适合做什么
 
@@ -221,7 +303,8 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 - 看命令状态
 - 看故障摘要
 - 做连接 / 断开入口
-- 在 ROS2 preview 中只读查看 mirror 数据
+- 做 `ESTOP / ARM / mode / DOF` 操作
+- 在 ROS2 detail path 中查看 mirror 细节数据
 
 ### GUI 当前不做什么
 
@@ -231,8 +314,9 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 - 不做 SSH 编排
 - 不做故障恢复回灌按钮
 - 不做安全裁决
+- 不做 `uwnav_navd` 进程内热切换；DVL policy 仍按“外围命令 + 配置写入 + 重启 nav preview lane”执行
 
-## 5. ROS2 preview 当前边界
+## 7. ROS2 preview 当前边界
 
 当前 ROS2 preview 只做：
 
@@ -248,20 +332,56 @@ $env:UROGCS_ROV_IP = "<OrangePi_IP>"
 - 替代 `gcs_server`
 - 替代 TUI teleop
 
-## 6. 当前最小安全操作顺序
+## 8. 当前最小安全操作顺序
 
 1. 先看 `Connection` 是否为可用状态。
 2. 再看 `Devices` 是否出现 `Mismatch` / `Reconnecting` / `Offline`。
-3. 再看 `Navigation` 是否为 `Invalid` / `Stale`。
+3. 再看 `Motion Info` 与 `Navigation` 页里的 trust gate 是否为 `Invalid` / `Stale` / `Degraded`。
 4. 再看 `Control` 是否处于 `Failsafe` / `E-Stop latched` / `Disarmed`。
-5. 如需真正 teleop，切换到 TUI；GUI 只做只读状态 / motion observer。
-6. 每次操作后都看 `Command` 和 `Control`，不要只看本地按钮是否点过。
+5. 如需 `ESTOP / ARM / mode / DOF` 操作，可以直接在 GUI `Operate` 页执行。
+6. 如需启用 DVL，只能在确认换能器已经处于水中环境后，再在 `Operate -> DVL Policy -> Enable DVL` 中确认弹窗。
+7. DVL policy 下发后会重启 `uwnav_navd + nav_viewd` 预览链；操作员必须观察 `Devices / Motion Info / Navigation` 是否重新回到期望状态。
+8. 如需连续键盘 teleop，再切到 TUI；当前 GUI 不是键盘主控制台。
+9. 每次操作后都看 `Command`、`Control` 和 `Execution`，不要只看本地按钮是否点过。
 
-## 7. 当前已知边界
+## 9. 无机器人时的本地 smoke test
 
-- GUI 当前只有一个首页，没有多页面导航。
-- GUI 首页是 preview，不应被描述为完整商业化平台。
-- ROS2 preview 仍是 read-only，不应被描述为完整 ROS2 UI backend。
+在没有真实机器人连接时，当前仍可以做一轮最小本地验证。
+
+推荐目标：
+
+- 验证 GUI 的 `Enable DVL` 会先弹出“已在水中环境”确认框
+- 验证 GUI 取消后不会发送命令
+- 验证 GCS UDP 命令链能收到 `DVL_POLICY` ACK
+- 验证 `dvl_policy_enabled` 会随 enable / disable 翻转
+- 验证“未确认在水中环境就启用 DVL”会被车端拒绝
+
+当前已做过的一轮本地基线是：
+
+- GUI 单测覆盖了：
+  - enable 需要确认弹窗
+  - cancel 不发送命令
+  - disable 不弹窗
+- 本机 `gcs_server` + 本机 GCS service 的 UDP smoke 已验证：
+  - handshake 可建立
+  - enable DVL 后 ACK=`OK`，并且 `dvl_policy_enabled=1`
+  - disable DVL 后 ACK=`OK`，并且 `dvl_policy_enabled=0`
+  - 若 `submerged_confirmed=0` 直接请求 enable，则 ACK=`BAD_FORMAT`
+
+注意：
+
+- 这类本地 smoke 默认只验证 GUI / 协议 / ACK / policy state 语义
+- 若使用 mock helper，它不等价于真实 `nav_lane_manager.py` 对 `uwnav_navd + nav_viewd` 的重启效果
+- 真正的 DVL runtime health 仍必须在真实导航链和真实水下环境里确认
+
+## 10. 当前已知边界
+
+- GUI 当前已经是多页面操作面，但仍处于工程化完善阶段，不应被描述为完整商业化平台。
+- ROS2 detail path 当前只负责补充细节观测，不负责命令写回，也不替代 UDP command lane。
 - Windows 路径虽然已有 `run_gui.ps1`，但还没有完成真实现场验证。
 - `pyproject.toml` 仍为空，当前不是 packaged installer 基线。
+- `Power` 页当前仍未接入稳定的 Volt32 实时数值契约，因此只能先显示量纲与换算规则。
+- GUI 已接入 `Disable DVL / Enable DVL` operator control；启用 DVL 前必须经过“已在水中环境”确认弹窗。
+- DVL policy 当前不是热切换；车端执行的是“更新 nav 配置 + 重启 nav preview lane”，因此切换期间导航预览会短暂中断。
+- GUI 当前展示的 `dvl_policy` 是 operator desired policy，不等价于 DVL runtime health；是否真正可用于相对导航，仍要看 `DVL online / nav_valid / nav_degraded / nav_fault_code`。
 - 如需更细的恢复动作，直接按 `operator_manual.md` 里的“卡住时的最短恢复顺序”执行，并结合 GUI/TUI 当前远端状态判断。
