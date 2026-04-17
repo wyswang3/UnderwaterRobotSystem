@@ -24,6 +24,10 @@ DEFAULT_NAV_BIN = NAV_CORE_ROOT / 'build' / 'bin' / 'uwnav_navd'
 DEFAULT_NAV_VIEW_BIN = CTRL_ROOT / 'build' / 'bin' / 'nav_viewd'
 DEFAULT_STATE_PATH = REPO_ROOT / 'reports' / 'nav_lane_manager' / 'state.json'
 
+OPERATOR_POLICY_EVENT_ENV = 'UWNAV_OPERATOR_POLICY_EVENT'
+OPERATOR_POLICY_SOURCE_ENV = 'UWNAV_OPERATOR_POLICY_SOURCE'
+OPERATOR_POLICY_DVL_ENABLED_ENV = 'UWNAV_OPERATOR_POLICY_DVL_ENABLED'
+
 
 def wall_time_now() -> str:
     return time.strftime('%Y-%m-%dT%H:%M:%S%z', time.localtime())
@@ -184,7 +188,19 @@ def stop_tracked_nav_processes(state: dict) -> None:
         wait_for_pid_exit(pid, 2.0)
 
 
-def spawn_process(command: list[str], cwd: Path, stdout_log: Path, stderr_log: Path) -> subprocess.Popen:
+def build_navd_env(*, dvl_enabled: bool) -> dict[str, str]:
+    env = os.environ.copy()
+    env[OPERATOR_POLICY_EVENT_ENV] = 'dvl_policy_applied'
+    env[OPERATOR_POLICY_SOURCE_ENV] = 'nav_lane_manager'
+    env[OPERATOR_POLICY_DVL_ENABLED_ENV] = '1' if dvl_enabled else '0'
+    return env
+
+
+def spawn_process(command: list[str],
+                  cwd: Path,
+                  stdout_log: Path,
+                  stderr_log: Path,
+                  env: dict[str, str] | None = None) -> subprocess.Popen:
     stdout_log.parent.mkdir(parents=True, exist_ok=True)
     stderr_log.parent.mkdir(parents=True, exist_ok=True)
     stdout_handle = stdout_log.open('ab')
@@ -196,6 +212,7 @@ def spawn_process(command: list[str], cwd: Path, stdout_log: Path, stderr_log: P
             start_new_session=True,
             stdout=stdout_handle,
             stderr=stderr_handle,
+            env=env,
         )
     finally:
         stdout_handle.close()
@@ -239,6 +256,7 @@ def apply_dvl_policy(enable: bool, state_path: Path) -> dict:
             NAV_CORE_ROOT,
             logs_root / 'uwnav_navd' / 'stdout.log',
             logs_root / 'uwnav_navd' / 'stderr.log',
+            env=build_navd_env(dvl_enabled=enable),
         )
         time.sleep(0.4)
         navd_rc = navd.poll()

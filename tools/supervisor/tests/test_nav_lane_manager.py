@@ -34,6 +34,12 @@ class NavLaneManagerTests(unittest.TestCase):
             changed = nav_lane_manager.write_dvl_enable(nav_cfg, True)
             self.assertFalse(changed)
 
+    def test_build_navd_env_marks_operator_dvl_policy_restart(self) -> None:
+        env = nav_lane_manager.build_navd_env(dvl_enabled=True)
+        self.assertEqual('dvl_policy_applied', env[nav_lane_manager.OPERATOR_POLICY_EVENT_ENV])
+        self.assertEqual('nav_lane_manager', env[nav_lane_manager.OPERATOR_POLICY_SOURCE_ENV])
+        self.assertEqual('1', env[nav_lane_manager.OPERATOR_POLICY_DVL_ENABLED_ENV])
+
     def test_apply_dvl_policy_rolls_back_config_when_restart_fails(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_root = Path(tmpdir)
